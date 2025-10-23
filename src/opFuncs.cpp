@@ -58,6 +58,30 @@ void u_tail(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n) {
     mpz_and(dst, t1, src);
   }
 }
+
+void u_replicate(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n) {
+  // Replicate the input value n times
+  // e.g., if src = 1010 (10 in decimal), bitcnt = 4, n = 2
+  // result should be 10101010 (170 in decimal)
+  if (n == 0) {
+    mpz_set_ui(dst, 0);
+    return;
+  }
+
+  if (n == 1) {
+    mpz_set(dst, src);
+    return;
+  }
+
+  // Start with the first copy
+  mpz_set(dst, src);
+
+  // Add subsequent copies, each shifted left by bitcnt bits
+  for (unsigned long i = 1; i < n; i++) {
+    mpz_mul_2exp(t1, src, i * bitcnt);
+    mpz_ior(dst, dst, t1);
+  }
+}
 // expr1
 void invalidExpr1(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt) { Assert(0, "Invalid Expr1 function\n"); }
 void u_asUInt(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt) {

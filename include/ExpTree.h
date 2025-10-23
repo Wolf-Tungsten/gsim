@@ -46,6 +46,7 @@ enum OPType {
   OP_SHR,
   OP_HEAD,
   OP_TAIL,
+  OP_REPLICATE,
 /* 1expr2int */
   OP_BITS,
   OP_BITS_NOSHIFT, // used for bit operations
@@ -76,7 +77,8 @@ enum OPType {
 /* aggregate when node */
   OP_STMT_SEQ,
   OP_STMT_WHEN,
-  OP_STMT_NODE
+  OP_STMT_NODE,
+/* Note: comb.ReverseOp, comb.TruthTableOp are not available in current CIRCT version */
 };
 
 class ENode {
@@ -115,6 +117,7 @@ private:
   valInfo* instsShr(Node* n, std::string lvalue, bool isRoot);
   valInfo* instsHead(Node* n, std::string lvalue, bool isRoot);
   valInfo* instsTail(Node* n, std::string lvalue, bool isRoot);
+  valInfo* instsReplicate(Node* n, std::string lvalue, bool isRoot);
   valInfo* instsBits(Node* n, std::string lvalue, bool isRoot);
   valInfo* instsBitsNoShift(Node* n, std::string lvalue, bool isRoot);
   valInfo* instsWhen(Node* node, std::string lvalue, bool isRoot);

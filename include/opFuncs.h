@@ -16,6 +16,7 @@ void u_shr(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n);
 void s_shr(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n);
 void u_head(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n);
 void u_tail(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n);
+void u_replicate(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt, unsigned long n);
 
 void invalidExpr1(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt);
 void u_asUInt(mpz_t& dst, mpz_t& src, mp_bitcnt_t bitcnt);
