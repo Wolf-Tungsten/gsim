@@ -90,6 +90,18 @@ void CIRCT2Graph::processOperations() {
       processCombParityOp(parityOp);
     } else if (auto replicateOp = llvm::dyn_cast<comb::ReplicateOp>(op)) {
       processCombReplicateOp(replicateOp);
+    } else if (auto arrayCreateOp = llvm::dyn_cast<hw::ArrayCreateOp>(op)) {
+      processHWArrayCreateOp(arrayCreateOp);
+    } else if (auto arrayGetOp = llvm::dyn_cast<hw::ArrayGetOp>(op)) {
+      processHWArrayGetOp(arrayGetOp);
+    } else if (auto arrayInjectOp = llvm::dyn_cast<hw::ArrayInjectOp>(op)) {
+      processHWArrayInjectOp(arrayInjectOp);
+    } else if (auto arraySliceOp = llvm::dyn_cast<hw::ArraySliceOp>(op)) {
+      processHWArraySliceOp(arraySliceOp);
+    } else if (auto arrayConcatOp = llvm::dyn_cast<hw::ArrayConcatOp>(op)) {
+      processHWArrayConcatOp(arrayConcatOp);
+    } else if (auto aggregateConstantOp = llvm::dyn_cast<hw::AggregateConstantOp>(op)) {
+      processHWAggregateConstantOp(aggregateConstantOp);
     } else if (auto outputOp = llvm::dyn_cast<hw::OutputOp>(op)) {
       // hw.output 操作不创建新的节点，只处理其操作数
       for (auto operand : outputOp.getOperands()) {
@@ -194,6 +206,27 @@ Node* CIRCT2Graph::createTernaryOpNode(mlir::Value result, mlir::Value cond, mli
   return node;
 }
 
+Node* CIRCT2Graph::createArrayOpNode(mlir::Value result, const std::vector<mlir::Value>& inputs, OPType opType) {
+  Node* node = new Node(NODE_OTHERS);
+  node->name = format("op_%s_%d", opType2String(opType).c_str(), node->id);
+  auto [width, sign] = getResultType(result);
+  node->setType(width, sign);
+
+  ENode* opENode = new ENode(opType);
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    opENode->addChild(createNodeFromValue(inputs[i], format("input_%zu", i)));
+  }
+  opENode->setWidth(node->width, node->sign);
+
+  ExpTree* expTree = new ExpTree(opENode, node);
+  node->valTree = expTree;
+  node->assignTree.push_back(expTree);
+
+  g->allNodes.push_back(node);
+  valueNodeMap[result] = node;
+  return node;
+}
+
 ENode* CIRCT2Graph::createNodeFromValue(mlir::Value value, const std::string& name) {
   auto it = valueNodeMap.find(value);
   if (it != valueNodeMap.end()) {
@@ -244,6 +277,7 @@ std::string CIRCT2Graph::opType2String(OPType opType) {
     case OP_REPLICATE: return "replicate";
     case OP_MUX: return "mux";
     case OP_XORR: return "xorr";
+    case OP_GROUP: return "group";
     default: return "unknown";
   }
 }
@@ -252,6 +286,17 @@ std::pair<int, bool> CIRCT2Graph::getResultType(mlir::Value value) {
   auto type = value.getType();
   if (auto intType = llvm::dyn_cast<IntegerType>(type)) {
     return {intType.getWidth(), intType.isSignedInteger()};
+  }
+  if (auto arrayType = llvm::dyn_cast<hw::ArrayType>(type)) {
+    // For arrays, we calculate total bit width as element_width * num_elements
+    auto elementType = arrayType.getElementType();
+    if (auto intElementType = llvm::dyn_cast<IntegerType>(elementType)) {
+      int elementWidth = intElementType.getWidth();
+      int numElements = arrayType.getNumElements();
+      return {elementWidth * numElements, false}; // Arrays are typically unsigned
+    }
+    // For nested arrays or other element types, return a default width
+    return {32, false};
   }
   // For other types, return default values
   return {32, true};
@@ -390,4 +435,83 @@ void CIRCT2Graph::processCombReplicateOp(comb::ReplicateOp replicateOp) {
 
   g->allNodes.push_back(node);
   valueNodeMap[replicateOp.getResult()] = node;
+}
+
+// HW array operation processors
+void CIRCT2Graph::processHWArrayCreateOp(hw::ArrayCreateOp arrayCreateOp) {
+  std::cout << "Processing hw.array_create operation with " << arrayCreateOp.getInputs().size() << " inputs" << std::endl;
+  std::vector<mlir::Value> inputs(arrayCreateOp.getInputs().begin(), arrayCreateOp.getInputs().end());
+  createArrayOpNode(arrayCreateOp.getResult(), inputs, OP_GROUP);
+}
+
+void CIRCT2Graph::processHWArrayGetOp(hw::ArrayGetOp arrayGetOp) {
+  std::cout << "Processing hw.array_get operation" << std::endl;
+  Node* node = new Node(NODE_OTHERS);
+  node->name = format("array_get_%d", node->id);
+  auto [width, sign] = getResultType(arrayGetOp.getResult());
+  node->setType(width, sign);
+
+  ENode* getENode = new ENode(OP_INDEX);
+  getENode->addChild(createNodeFromValue(arrayGetOp.getInput(), "array"));
+  getENode->addChild(createNodeFromValue(arrayGetOp.getIndex(), "index"));
+  getENode->setWidth(node->width, node->sign);
+
+  ExpTree* expTree = new ExpTree(getENode, node);
+  node->valTree = expTree;
+  node->assignTree.push_back(expTree);
+
+  g->allNodes.push_back(node);
+  valueNodeMap[arrayGetOp.getResult()] = node;
+}
+
+void CIRCT2Graph::processHWArrayInjectOp(hw::ArrayInjectOp arrayInjectOp) {
+  std::cout << "Processing hw.array_inject operation" << std::endl;
+  std::vector<mlir::Value> inputs = {arrayInjectOp.getInput(), arrayInjectOp.getIndex(), arrayInjectOp.getElement()};
+  createArrayOpNode(arrayInjectOp.getResult(), inputs, OP_GROUP);
+}
+
+void CIRCT2Graph::processHWArraySliceOp(hw::ArraySliceOp arraySliceOp) {
+  std::cout << "Processing hw.array_slice operation" << std::endl;
+  Node* node = new Node(NODE_OTHERS);
+  node->name = format("array_slice_%d", node->id);
+  auto [width, sign] = getResultType(arraySliceOp.getDst());
+  node->setType(width, sign);
+
+  ENode* sliceENode = new ENode(OP_BITS);
+  sliceENode->addChild(createNodeFromValue(arraySliceOp.getInput(), "array"));
+  sliceENode->addChild(createNodeFromValue(arraySliceOp.getLowIndex(), "lowIndex"));
+  sliceENode->setWidth(node->width, node->sign);
+
+  ExpTree* expTree = new ExpTree(sliceENode, node);
+  node->valTree = expTree;
+  node->assignTree.push_back(expTree);
+
+  g->allNodes.push_back(node);
+  valueNodeMap[arraySliceOp.getDst()] = node;
+}
+
+void CIRCT2Graph::processHWArrayConcatOp(hw::ArrayConcatOp arrayConcatOp) {
+  std::cout << "Processing hw.array_concat operation with " << arrayConcatOp.getInputs().size() << " inputs" << std::endl;
+  std::vector<mlir::Value> inputs(arrayConcatOp.getInputs().begin(), arrayConcatOp.getInputs().end());
+  createArrayOpNode(arrayConcatOp.getResult(), inputs, OP_CAT);
+}
+
+void CIRCT2Graph::processHWAggregateConstantOp(hw::AggregateConstantOp aggregateConstantOp) {
+  std::cout << "Processing hw.aggregate_constant operation" << std::endl;
+  Node* node = new Node(NODE_OTHERS);
+  node->name = format("aggregate_const_%d", node->id);
+  auto [width, sign] = getResultType(aggregateConstantOp.getResult());
+  node->setType(width, sign);
+  node->status = CONSTANT_NODE;
+
+  // For aggregate constants, we create a simple group operation
+  ENode* constENode = new ENode(OP_GROUP);
+  constENode->setWidth(node->width, node->sign);
+
+  ExpTree* expTree = new ExpTree(constENode, node);
+  node->valTree = expTree;
+  node->assignTree.push_back(expTree);
+
+  g->allNodes.push_back(node);
+  valueNodeMap[aggregateConstantOp.getResult()] = node;
 }

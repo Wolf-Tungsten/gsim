@@ -60,10 +60,19 @@ class CIRCT2Graph {
   void processCombReplicateOp(comb::ReplicateOp op);
   // Note: comb.ReverseOp, comb.TruthTableOp are not available in current CIRCT version
   
+  // HW array operation processors
+  void processHWArrayCreateOp(hw::ArrayCreateOp op);
+  void processHWArrayGetOp(hw::ArrayGetOp op);
+  void processHWArrayInjectOp(hw::ArrayInjectOp op);
+  void processHWArraySliceOp(hw::ArraySliceOp op);
+  void processHWArrayConcatOp(hw::ArrayConcatOp op);
+  void processHWAggregateConstantOp(hw::AggregateConstantOp op);
+
   // Helper methods
   Node* createBinaryOpNode(mlir::Value result, mlir::Value lhs, mlir::Value rhs, OPType opType);
   Node* createUnaryOpNode(mlir::Value result, mlir::Value input, OPType opType);
   Node* createTernaryOpNode(mlir::Value result, mlir::Value cond, mlir::Value trueVal, mlir::Value falseVal, OPType opType);
+  Node* createArrayOpNode(mlir::Value result, const std::vector<mlir::Value>& inputs, OPType opType);
   ENode* createNodeFromValue(mlir::Value value, const std::string& name);
   std::pair<int, bool> getResultType(mlir::Value value);
   OPType getICmpPredicate(int predicate);
