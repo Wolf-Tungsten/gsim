@@ -22,6 +22,12 @@ static char* emptyStr = NULL;
     namespace Parser {
         class Lexical;
     } // namespace calc
+
+    class PList;
+    struct RegWithClause {
+        PList* reset;
+        const char* info;
+    };
 }
 
 %code
@@ -41,6 +47,7 @@ static char* emptyStr = NULL;
   int         intVal;
   PNode*      pnode;
   PList*      plist;
+  RegWithClause regClause;
 }
 
 /* token */
@@ -60,6 +67,7 @@ static char* emptyStr = NULL;
 %token Define Const
 %token Firrtl Version INDENT DEDENT
 %token RightArrow "=>"
+%token Leq "<="
 %token Leftarrow "<-"
 %token DataType Depth ReadLatency WriteLatency ReadUnderwrite Reader Writer Readwriter Write Read Infer Rdwr Mport
 /* internal node */
@@ -70,6 +78,10 @@ static char* emptyStr = NULL;
 %type <pnode> reference expr primop_2expr primop_1expr primop_1expr1int primop_1expr2int
 %type <pnode> field type_aggregate type_ground circuit
 %type <strVal> info ALLID ext_defname
+%type <regClause> reg_with_block
+%type <plist> reg_reset_stmt
+%type <strVal> reg_with_info_opt
+%type <name> kw_with kw_reset kw_is kw_invalid
 /* %token <pnode> */
 
 %nonassoc LOWER_THAN_ELSE
@@ -198,16 +210,30 @@ when_else:  %prec LOWER_THAN_ELSE { $$ = new PNode(P_STATEMENTS, synlineno()); }
     | Else ':' INDENT statements DEDENT { $$ = $4; }
     ;
 statement: Wire ALLID ':' type info    { $$ = newNode(P_WIRE_DEF, $4->lineno, $5, $2, 1, $4); }
-    | Reg      ALLID ':' type ',' expr info  { $$ = newNode(P_REG_DEF, $4->lineno, /* info */$7 , /* name */$2, /* num */2, /* Type */$4, /* Clock */$6); }
+    | Reg      ALLID ':' type ',' expr reg_with_block info  {
+        PList* resetList = $7.reset;
+        const char* stmtInfo = $8 ? $8 : $7.info;
+        if (resetList) {
+            assert(resetList->siblings.size() == 2 && "reset clause must provide condition and value");
+            PNode* resetCond = resetList->siblings[0];
+            PNode* resetVal  = resetList->siblings[1];
+            delete resetList;
+            $$ = newNode(P_REG_RESET_DEF, $4->lineno, /* info */stmtInfo , /* name */$2, /* num */4, /* Type */$4, /* Clock */$6, /* Reset Cond */resetCond , /* Reset Val*/resetVal);
+        } else {
+            $$ = newNode(P_REG_DEF, $4->lineno, /* info */stmtInfo , /* name */$2, /* num */2, /* Type */$4, /* Clock */$6);
+        }
+      }
     | RegReset ALLID ':' type ',' expr ',' expr ',' expr info { $$ = newNode(P_REG_RESET_DEF, $4->lineno, /* info */$11, /* name */$2, /* num */4, /* Type */ $4, /* Clock */$6, /* Reset Cond */ $8 , /* Reset Val*/$10); }
     | chirrtl_memory      { $$ = $1; }
     | chirrtl_memory_port { $$ = $1; }
     | Inst ALLID Of ALLID info    { $$ = newNode(P_INST, synlineno(), $5, $2, 0); $$->appendExtraInfo($4); }
     | Node ALLID '=' expr info { $$ = newNode(P_NODE, synlineno(), $5, $2, 1, $4); }
     | Connect reference ',' expr info { $$ = newNode(P_CONNECT, $2->lineno, $5, NULL, 2, $2, $4); }
+    | reference "<=" expr info { $$ = newNode(P_CONNECT, $1->lineno, $4, NULL, 2, $1, $3); }
     | Connect reference ',' Read '(' expr ')' info { $$ = newNode(P_CONNECT, $2->lineno, $8, NULL, 2, $2, $6); }
     | reference "<-" expr info  { $$ = newNode(P_PAR_CONNECT, $1->lineno, $4, NULL, 2, $1, $3); }
     | Invalidate reference info { $$ = newNode(P_INVALID, synlineno(), nullptr, 0); $$->setWidth(1); $$ = newNode(P_CONNECT, $2->lineno, $3, NULL, 2, $2, $$); }
+    | reference kw_is kw_invalid info { $$ = newNode(P_INVALID, synlineno(), nullptr, 0); $$->setWidth(1); $$ = newNode(P_CONNECT, $1->lineno, $4, NULL, 2, $1, $$); }
     | Define reference '=' Probe '(' expr ')' info { $$ = newNode(P_CONNECT, synlineno(), $8, NULL, 2, $2, $6); }
     | Define reference '=' expr info { $$ = newNode(P_CONNECT, synlineno(), $5, NULL, 2, $2, $4); }
     | Attach '(' references ')' info { TODO(); }
@@ -219,6 +245,26 @@ statement: Wire ALLID ':' type info    { $$ = newNode(P_WIRE_DEF, $4->lineno, $5
     | Assert '(' expr ',' expr ',' expr ',' String ')' ':' ALLID info { $$ = newNode(P_ASSERT, synlineno(), $13, $12, 3, $3, $5, $7); $$->appendExtraInfo($9); }
     | Assert '(' expr ',' expr ',' expr ',' String ')' info { $$ = newNode(P_ASSERT, synlineno(), $11, NULL, 3, $3, $5, $7); $$->appendExtraInfo($9); }
     | Skip info { $$ = NULL; }
+    ;
+
+reg_with_block:
+      { $$.reset = nullptr; $$.info = nullptr; }
+    | kw_with ':' reg_reset_stmt reg_with_info_opt { $$.reset = $3; $$.info = $4; }
+    | kw_with ':' '(' reg_reset_stmt ')' reg_with_info_opt { $$.reset = $4; $$.info = $6; }
+    | kw_with ':' INDENT reg_reset_stmt reg_with_info_opt DEDENT { $$.reset = $4; $$.info = $5; }
+    ;
+
+reg_with_info_opt:
+      { $$ = NULL; }
+    | info { $$ = $1; }
+    ;
+
+reg_reset_stmt:
+      kw_reset RightArrow '(' expr ',' expr ')' {
+        PList* list = new PList($4);
+        list->append($6);
+        $$ = list;
+      }
     ;
 /* module definitions */
 port: Input ALLID ':' type info    { $$ = newNode(P_INPUT, synlineno(), $5, $2, 1, $4); }
@@ -245,6 +291,50 @@ extmodule: Extmodule ALLID ':' info INDENT ports ext_defname params DEDENT  { $$
     ;
 intmodule: Intmodule ALLID ':' info INDENT ports Intrinsic '=' ALLID params DEDENT	{ TODO(); }
 		;
+
+kw_with:
+    ID {
+        if (strcmp($1, "with") != 0) {
+            free((void*)$1);
+            error("expected keyword 'with' in register declaration");
+        }
+        free((void*)$1);
+        $$ = NULL;
+    }
+    ;
+
+kw_reset:
+    ID {
+        if (strcmp($1, "reset") != 0) {
+            free((void*)$1);
+            error("expected keyword 'reset' in register initialization");
+        }
+        free((void*)$1);
+        $$ = NULL;
+    }
+    ;
+
+kw_is:
+    ID {
+        if (strcmp($1, "is") != 0) {
+            free((void*)$1);
+            error("expected keyword 'is' in invalidate statement");
+        }
+        free((void*)$1);
+        $$ = NULL;
+    }
+    ;
+
+kw_invalid:
+    ID {
+        if (strcmp($1, "invalid") != 0) {
+            free((void*)$1);
+            error("expected keyword 'invalid' in invalidate statement");
+        }
+        free((void*)$1);
+        $$ = NULL;
+    }
+    ;
 /* in-line anotations */
 member:
       String ':' String {}

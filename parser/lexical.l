@@ -14,6 +14,54 @@
     std::cout << "(" << lineno() << ", " << ret << ") " << yytext << std::endl;
     return ret;
   }
+
+  static inline bool isValidDigitForBase(char c, int base) {
+    switch (base) {
+      case 2: return c == '0' || c == '1';
+      case 8: return c >= '0' && c <= '7';
+      case 16: return (c >= '0' && c <= '9') ||
+                      (c >= 'a' && c <= 'f') ||
+                      (c >= 'A' && c <= 'F');
+      default: return false;
+    }
+  }
+
+  static char* convertBasedIntString(const char* literal) {
+    size_t len = strlen(literal);
+    if (len < 4 || literal[0] != '"' || literal[len - 1] != '"') return NULL;
+    char baseChar = literal[1];
+    int base = 10;
+    switch (baseChar) {
+      case 'b':
+      case 'B': base = 2; break;
+      case 'o':
+      case 'O': base = 8; break;
+      case 'h':
+      case 'H': base = 16; break;
+      default: return NULL;
+    }
+    std::string payload(literal + 2, len - 3);
+    if (payload.empty()) return NULL;
+    size_t pos = 0;
+    if (payload[pos] == '-') {
+      pos ++;
+      if (pos == payload.size()) return NULL;
+    }
+    for (; pos < payload.size(); pos ++) {
+      if (!isValidDigitForBase(payload[pos], base)) return NULL;
+    }
+    mpz_t value;
+    mpz_init(value);
+    if (mpz_set_str(value, payload.c_str(), base) != 0) {
+      mpz_clear(value);
+      return NULL;
+    }
+    char* dec = mpz_get_str(NULL, 10, value);
+    mpz_clear(value);
+    char* result = strdup(dec);
+    free(dec);
+    return result;
+  }
 %}
 
 %option c++ noyywrap yylineno nodefault
@@ -159,8 +207,17 @@ info        [0-9A-Za-z.{}:,/ _-]+
 <normal>define                  { return token::Define; }
 <normal>const                   { return token::Const; }
 <normal>{id}                    { yylval->name = strdup(yytext); return token::ID; }
-<normal>{string}                { yylval->strVal = strdup(yytext); return token::String; }
+<normal>{string}                {
+                                    char* converted = convertBasedIntString(yytext);
+                                    if (converted) {
+                                      yylval->strVal = converted;
+                                      return token::INT;
+                                    }
+                                    yylval->strVal = strdup(yytext);
+                                    return token::String;
+                                  }
 <normal>"=>"                    { return token::RightArrow; }
+<normal>"<="                    { return token::Leq; }
 <normal>"<-"                    { return token::Leftarrow; }
 <normal>"<"                     { angle_num ++; return yytext[0];}
 <normal>">"                     { angle_num --; return yytext[0];}

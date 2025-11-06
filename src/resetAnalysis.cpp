@@ -26,12 +26,22 @@ ResetType ENode::inferReset() {
     reset = nodePtr->inferReset(); 
     return reset;
   }
+  auto propagateFromChildren = [this]() {
+    ResetType inferred = UINTRESET;
+    for (size_t i = 0; i < getChildNum(); i ++) {
+      ENode* childNode = getChild(i);
+      if (!childNode) continue;
+      ResetType childReset = childNode->inferReset();
+      if (childReset == ASYRESET) return ASYRESET;
+    }
+    return inferred;
+  };
   int base;
   std::string str;
   switch (opType) {
     case OP_ASUINT:
     case OP_ASSINT:
-      reset = UINTRESET;
+      reset = propagateFromChildren();
       break;
     case OP_INT:
       std::tie(base, str) = firStrBase(strVal);
@@ -47,12 +57,37 @@ ResetType ENode::inferReset() {
       break;
     case OP_BITS:
     case OP_OR:
-      reset = UINTRESET;
+      reset = propagateFromChildren();
       break;
-    case OP_ASCLOCK:
+    case OP_NOT:
+    case OP_AND:
+    case OP_ANDR:
+    case OP_ORR:
+    case OP_XORR:
+    case OP_XOR:
+    case OP_CVT:
+    case OP_NEG:
+    case OP_PAD:
+    case OP_HEAD:
+    case OP_TAIL:
+    case OP_MUX:
+    case OP_WHEN:
+    case OP_SHL:
+    case OP_SHR:
+    case OP_DSHL:
+    case OP_DSHR:
+    case OP_EQ:
+    case OP_NEQ:
+    case OP_LT:
+    case OP_LEQ:
+    case OP_GT:
+    case OP_GEQ:
+    case OP_CAT:
+      reset = propagateFromChildren();
+      break;
     default:
-      printf("opType %d\n", opType);
-      Panic();
+      reset = propagateFromChildren();
+      break;
   }
   return reset;
 }
