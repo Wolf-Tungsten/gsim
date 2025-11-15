@@ -67,6 +67,7 @@ class CIRCT2Graph {
   void processHWArraySliceOp(hw::ArraySliceOp op);
   void processHWArrayConcatOp(hw::ArrayConcatOp op);
   void processHWAggregateConstantOp(hw::AggregateConstantOp op);
+  void processHWWireOp(hw::WireOp op);
 
   // Helper methods
   Node* createBinaryOpNode(mlir::Value result, mlir::Value lhs, mlir::Value rhs, OPType opType);

@@ -365,6 +365,10 @@ void graph::graphRefine() {
 }
 
 void graph::graphPartition() {
+  if (sortedSuper.size() <= 1) {
+    printf("[graphPartition] skip: superNodes=%ld (need >1 for partition)\n", sortedSuper.size());
+    return;
+  }
   size_t totalSuper = sortedSuper.size();
   size_t phaseSuper = sortedSuper.size();
   orderAllNodes();

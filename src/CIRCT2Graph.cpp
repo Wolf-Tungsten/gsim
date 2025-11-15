@@ -102,6 +102,8 @@ void CIRCT2Graph::processOperations() {
       processHWArrayConcatOp(arrayConcatOp);
     } else if (auto aggregateConstantOp = llvm::dyn_cast<hw::AggregateConstantOp>(op)) {
       processHWAggregateConstantOp(aggregateConstantOp);
+    } else if (auto wireOp = llvm::dyn_cast<hw::WireOp>(op)) {
+      processHWWireOp(wireOp);
     } else if (auto outputOp = llvm::dyn_cast<hw::OutputOp>(op)) {
       // hw.output 操作不创建新的节点，只处理其操作数
       for (auto operand : outputOp.getOperands()) {
@@ -514,4 +516,15 @@ void CIRCT2Graph::processHWAggregateConstantOp(hw::AggregateConstantOp aggregate
 
   g->allNodes.push_back(node);
   valueNodeMap[aggregateConstantOp.getResult()] = node;
+}
+
+void CIRCT2Graph::processHWWireOp(hw::WireOp wireOp) {
+  std::cout << "Processing hw.wire operation" << std::endl;
+  mlir::Value input = wireOp.getInput();
+  auto it = valueNodeMap.find(input);
+  Assert(it != valueNodeMap.end() && it->second, "hw.wire input is not processed.");
+
+  // hw.wire is a transparent alias in hardware. We simply reuse the same node
+  // so downstream users see the already created producer node.
+  valueNodeMap[wireOp.getResult()] = it->second;
 }
