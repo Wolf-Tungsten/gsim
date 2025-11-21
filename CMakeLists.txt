@@ -8,9 +8,9 @@ find_package(BISON REQUIRED)
 find_library(GMP_LIB gmp REQUIRED)
 find_package(Threads REQUIRED)
 
-set(LLVM_DIR "/download/llvm_mlir_circt/circt/install/llvm/lib/cmake/llvm" CACHE PATH "" FORCE)
-set(MLIR_DIR "/download/llvm_mlir_circt/circt/install/llvm/lib/cmake/mlir" CACHE PATH "" FORCE)
-set(CIRCT_DIR "/download/llvm_mlir_circt/circt/install/circt/lib/cmake/circt" CACHE PATH "" FORCE)
+set(LLVM_DIR "/home/zhangyangjie/simulator/circt/llvm/install/lib/cmake/llvm" CACHE PATH "" FORCE)
+set(MLIR_DIR "/home/zhangyangjie/simulator/circt/llvm/install/lib/cmake/mlir" CACHE PATH "" FORCE)
+set(CIRCT_DIR "/home/zhangyangjie/simulator/circt/install/lib/cmake/circt" CACHE PATH "" FORCE)
 find_package(LLVM REQUIRED CONFIG)
 find_package(MLIR REQUIRED CONFIG)
 find_package(CIRCT REQUIRED CONFIG)
@@ -74,4 +74,3 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
-

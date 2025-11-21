@@ -1168,6 +1168,39 @@ valInfo* ENode::instsTail(Node* node, std::string lvalue, bool isRoot) {
   return ret;
 }
 
+/*
+  replicate input value n times
+  e.g., replicate(1010, 2) = 10101010
+*/
+valInfo* ENode::instsReplicate(Node* node, std::string lvalue, bool isRoot) {
+  valInfo* ret = computeInfo;
+
+  bool isConstant = ChildInfo(0, status) == VAL_CONSTANT;
+  int n = MIN(width / ChildInfo(0, width), values[0]);
+
+  if (isConstant) {
+    if (sign) TODO();
+    u_replicate(ret->consVal, ChildInfo(0, consVal), ChildInfo(0, width), n);
+    ret->setConsStr();
+  } else {
+    // For non-constant case, we need to implement replication in C++
+    std::string input = ChildInfo(0, valStr);
+    int inputWidth = ChildInfo(0, width);
+
+    ret->valStr = "(";
+    for (int i = 0; i < n; i++) {
+      if (i > 0) ret->valStr += " | ";
+      std::string shift = "(" + input;
+      if (i > 0) shift += shiftBits(i * inputWidth, ShiftDir::Left);
+      shift += ")";
+      ret->valStr += shift;
+    }
+    ret->valStr += ")";
+    ret->opNum = ChildInfo(0, opNum) + n - 1;
+  }
+  return ret;
+}
+
 void infoBits(valInfo* ret, ENode* enode, valInfo* childInfo) {
   bool isConstant = childInfo->status == VAL_CONSTANT;
 
@@ -1592,6 +1625,7 @@ valInfo* ENode::compute(Node* n, std::string lvalue, bool isRoot) {
     case OP_SHR: instsShr(n, lvalue, isRoot); break;
     case OP_HEAD: instsHead(n, lvalue, isRoot); break;
     case OP_TAIL: instsTail(n, lvalue, isRoot); break;
+    case OP_REPLICATE: instsReplicate(n, lvalue, isRoot); break;
     case OP_BITS: instsBits(n, lvalue, isRoot); break;
     case OP_BITS_NOSHIFT: instsBitsNoShift(n, lvalue, isRoot); break;
     case OP_INDEX_INT: instsIndexInt(n, lvalue, isRoot); break;
