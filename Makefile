@@ -143,7 +143,7 @@ GSIM_INC_DIR = include $(PARSER_DIR)/include $(PARSER_BUILD_DIR)
 # 2) If you still see "DWARF error: invalid or unhandled FORM value: 0x25" from ld
 #    your binutils (ld) may be older than the DWARF version emitted by clang-19.
 #    You can force DWARF v4 by building with: make DWARF4=1 ... (see conditional below).
-CXXFLAGS += -ggdb -O3 -MMD $(addprefix -I,$(GSIM_INC_DIR)) -Wall -Werror --std=c++17 -pthread
+CXXFLAGS += -ggdb -O3 -march=native -MMD $(addprefix -I,$(GSIM_INC_DIR)) -Wall -Werror --std=c++17 -pthread
 
 ifeq ($(DWARF4),1)
 	CXXFLAGS += -gdwarf-4
@@ -218,7 +218,6 @@ EMU_SRCS += $(EMU_MAIN_SRCS) $(EMU_GEN_SRCS)
 
 EMU_CFLAGS := -O1 -MMD $(addprefix -I, $(abspath $(GEN_CPP_DIR))) $(addprefix -I, $(GSIM_INC_DIR)) $(EMU_CFLAGS) # allow to overwrite optimization level
 EMU_CFLAGS += $(MODE_FLAGS) $(CFLAGS_DUT) -Wno-parentheses-equality
-EMU_LDFLAGS += -lgmpxx -lgmp
 EMU_CFLAGS += -fbracket-depth=2048
 #EMU_CFLAGS += -fsanitize=address -fsanitize-address-use-after-scope
 #EMU_CFLAGS += -fsanitize=undefined -fsanitize=pointer-compare -fsanitize=pointer-subtract
