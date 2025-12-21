@@ -216,8 +216,13 @@ endif
 EMU_GEN_SRCS = $(shell find $(GEN_CPP_DIR) -name "*.cpp" 2> /dev/null)
 EMU_SRCS += $(EMU_MAIN_SRCS) $(EMU_GEN_SRCS)
 
-EMU_CFLAGS := -O1 -MMD $(addprefix -I, $(abspath $(GEN_CPP_DIR))) $(addprefix -I, $(GSIM_INC_DIR)) $(EMU_CFLAGS) # allow to overwrite optimization level
-EMU_CFLAGS += $(MODE_FLAGS) $(CFLAGS_DUT) -Wno-parentheses-equality
+EMU_WARN_SUPPRESS :=
+ifeq ($(CXX_IS_CLANG),1)
+EMU_WARN_SUPPRESS += -Wno-parentheses-equality
+endif
+
+EMU_CFLAGS := -O1 -MMD --std=c++17 $(addprefix -I, $(abspath $(GEN_CPP_DIR))) $(addprefix -I, $(GSIM_INC_DIR)) $(EMU_CFLAGS) # allow to overwrite optimization level
+EMU_CFLAGS += $(MODE_FLAGS) $(CFLAGS_DUT) $(EMU_WARN_SUPPRESS)
 EMU_CFLAGS += -fbracket-depth=2048
 #EMU_CFLAGS += -fsanitize=address -fsanitize-address-use-after-scope
 #EMU_CFLAGS += -fsanitize=undefined -fsanitize=pointer-compare -fsanitize=pointer-subtract
@@ -263,7 +268,8 @@ VERI_GEN_MK = $(VERI_BUILD_DIR)/V$(NAME).mk
 
 VERI_CFLAGS = $(call escape_quote,$(EMU_CFLAGS) $(CFLAGS_REF))
 VERI_LDFLAGS = -O1
-VERI_VFLAGS = --top $(NAME) -Wno-lint -j 8 --cc --exe +define+RANDOMIZE_GARBAGE_ASSIGN --max-num-width 1048576 --compiler clang
+VERI_COMPILER ?= $(if $(filter 1,$(CXX_IS_CLANG)),clang,gcc)
+VERI_VFLAGS = --top $(NAME) -Wno-lint -j 8 --cc --exe +define+RANDOMIZE_GARBAGE_ASSIGN --max-num-width 1048576 --compiler $(VERI_COMPILER)
 ifeq ($(SIMPOINT),1)
 VERI_LDFLAGS += -lz -lzstd
 endif
@@ -279,7 +285,7 @@ $(VERI_GEN_MK): $(VERI_VSRCS) $(VERI_CSRCS-$(MODE)) | $(EMU_MAIN_SRCS)
 	verilator $(VERI_VFLAGS) $(abspath $^ $|)
 
 $(VERI_BIN): | $(VERI_GEN_MK)
-	$(TIME) $(MAKE) OPT_FAST="-O1" CXX=clang++ -s -C $(VERI_BUILD_DIR) -f $(abspath $|)
+	$(TIME) $(MAKE) OPT_FAST="-O1" CXX="$(CXX)" -s -C $(VERI_BUILD_DIR) -f $(abspath $|)
 	ln -sf $(abspath $(VERI_BUILD_DIR)/V$(NAME)) $@
 
 compile-veri: $(VERI_GEN_MK)
