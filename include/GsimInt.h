@@ -133,6 +133,54 @@ class GsimInt {
 
   void zero() { data_.fill(0); }
 
+  static limb_t add2(limb_t a, limb_t b, limb_t& carry_out) {
+    limb_t res = a + b;
+    carry_out = (res < a) ? 1 : 0;
+    return res;
+  }
+
+  static limb_t add3(limb_t a, limb_t b, limb_t c, limb_t& carry_out) {
+    limb_t carry1 = 0;
+    limb_t res = add2(a, b, carry1);
+    limb_t carry2 = 0;
+    res = add2(res, c, carry2);
+    carry_out = carry1 + carry2; // can be 0,1,2
+    return res;
+  }
+
+  static limb_t sub2(limb_t a, limb_t b, limb_t& borrow_out) {
+    limb_t res = a - b;
+    borrow_out = (a < b) ? 1 : 0;
+    return res;
+  }
+
+  static limb_t sub3(limb_t a, limb_t b, limb_t c, limb_t& borrow_out) {
+    limb_t borrow1 = 0;
+    limb_t res = sub2(a, b, borrow1);
+    limb_t borrow2 = 0;
+    res = sub2(res, c, borrow2);
+    borrow_out = borrow1 + borrow2; // can be 0,1,2
+    return res;
+  }
+
+  static void mul_64(limb_t a, limb_t b, limb_t& hi, limb_t& lo) {
+    const limb_t a0 = static_cast<uint32_t>(a);
+    const limb_t a1 = a >> 32;
+    const limb_t b0 = static_cast<uint32_t>(b);
+    const limb_t b1 = b >> 32;
+
+    const limb_t p0 = a0 * b0;
+    const limb_t p1 = a0 * b1;
+    const limb_t p2 = a1 * b0;
+    const limb_t p3 = a1 * b1;
+
+    limb_t mid_low = (p0 >> 32) + (p1 & 0xffffffffULL) + (p2 & 0xffffffffULL);
+    limb_t carry = mid_low >> 32;
+    lo = (p0 & 0xffffffffULL) | (mid_low << 32);
+
+    hi = p3 + (p1 >> 32) + (p2 >> 32) + carry;
+  }
+
   bool is_negative() const {
     if constexpr (!SIGNED) return false;
     const unsigned bit = (WIDTH - 1) % kLimbBits;
@@ -207,11 +255,11 @@ class GsimInt {
 
   GsimInt add(const GsimInt& rhs) const {
     GsimInt ret;
-    unsigned __int128 carry = 0;
+    limb_t carry = 0;
     for (size_t i = 0; i < kLimbCount; ++i) {
-      unsigned __int128 sum = static_cast<unsigned __int128>(data_[i]) + rhs.data_[i] + carry;
-      ret.data_[i] = static_cast<limb_t>(sum);
-      carry = sum >> kLimbBits;
+      limb_t carry_out = 0;
+      ret.data_[i] = add3(data_[i], rhs.data_[i], carry, carry_out);
+      carry = carry_out;
     }
     ret.apply_mask();
     return ret;
@@ -219,11 +267,11 @@ class GsimInt {
 
   GsimInt sub(const GsimInt& rhs) const {
     GsimInt ret;
-    unsigned __int128 borrow = 0;
+    limb_t borrow = 0;
     for (size_t i = 0; i < kLimbCount; ++i) {
-      unsigned __int128 diff = static_cast<unsigned __int128>(data_[i]) - rhs.data_[i] - borrow;
-      ret.data_[i] = static_cast<limb_t>(diff);
-      borrow = (diff >> (sizeof(unsigned __int128) * 8 - 1)) & 1;
+      limb_t borrow_out = 0;
+      ret.data_[i] = sub3(data_[i], rhs.data_[i], borrow, borrow_out);
+      borrow = borrow_out;
     }
     ret.apply_mask();
     return ret;
@@ -232,14 +280,28 @@ class GsimInt {
   GsimInt mul(const GsimInt& rhs) const {
     GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) {
-      unsigned __int128 carry = 0;
+      limb_t carry = 0;
+      limb_t carry_extra = 0;
       for (size_t j = 0; j + i < kLimbCount; ++j) {
-        unsigned __int128 acc = static_cast<unsigned __int128>(data_[i]) * rhs.data_[j];
-        acc += ret.data_[i + j];
-        acc += carry;
-        ret.data_[i + j] = static_cast<limb_t>(acc);
-        carry = acc >> kLimbBits;
+        // fold any extra overflow from the previous iteration into carry
+        if (carry_extra) {
+          limb_t overflow = 0;
+          carry = add2(carry, carry_extra, overflow);
+          carry_extra = overflow;
+        }
+
+        limb_t hi = 0, lo = 0;
+        mul_64(data_[i], rhs.data_[j], hi, lo);
+
+        limb_t carry_sum = 0;
+        limb_t tmp = add3(ret.data_[i + j], lo, carry, carry_sum);
+        ret.data_[i + j] = tmp;
+
+        limb_t next_carry_overflow = 0;
+        carry = add3(hi, carry_sum, 0, next_carry_overflow);
+        carry_extra += next_carry_overflow;
       }
+      // any remaining carry or carry_extra falls outside the truncated width and is discarded
     }
     ret.apply_mask();
     return ret;
@@ -275,11 +337,11 @@ class GsimInt {
 
   static void ext_sub(std::array<limb_t, kLimbCount + 1>& a,
                       const std::array<limb_t, kLimbCount + 1>& b) {
-    unsigned __int128 borrow = 0;
+    limb_t borrow = 0;
     for (size_t i = 0; i < a.size(); ++i) {
-      unsigned __int128 diff = static_cast<unsigned __int128>(a[i]) - b[i] - borrow;
-      a[i] = static_cast<limb_t>(diff);
-      borrow = (diff >> (sizeof(unsigned __int128) * 8 - 1)) & 1;
+      limb_t borrow_out = 0;
+      a[i] = sub3(a[i], b[i], borrow, borrow_out);
+      borrow = borrow_out;
     }
   }
 
@@ -314,11 +376,11 @@ class GsimInt {
   GsimInt neg() const {
     GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) ret.data_[i] = ~data_[i];
-    unsigned __int128 carry = 1;
+    limb_t carry = 1;
     for (size_t i = 0; i < kLimbCount; ++i) {
-      unsigned __int128 sum = static_cast<unsigned __int128>(ret.data_[i]) + carry;
-      ret.data_[i] = static_cast<limb_t>(sum);
-      carry = sum >> kLimbBits;
+      limb_t carry_out = 0;
+      ret.data_[i] = add3(ret.data_[i], carry, 0, carry_out);
+      carry = carry_out;
       if (!carry) break;
     }
     ret.apply_mask();
