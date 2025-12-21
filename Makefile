@@ -175,7 +175,7 @@ $(foreach x, $(PARSER_GEN_SRCS), $(eval \
 $(foreach x, $(GSIM_SRCS), $(eval \
 	$(call CXX_TEMPLATE, $(GSIM_BUILD_DIR)/$(basename $(x)).o, $(x), $(CXXFLAGS), GSIM_OBJS, $(PARSER_GEN_HEADER))))
 
-$(eval $(call LD_TEMPLATE, $(GSIM_BIN), $(GSIM_OBJS), $(CXXFLAGS) -lgmp))
+$(eval $(call LD_TEMPLATE, $(GSIM_BIN), $(GSIM_OBJS), $(CXXFLAGS) -lgmpxx -lgmp))
 
 build-gsim: $(GSIM_BIN)
 
@@ -216,8 +216,9 @@ endif
 EMU_GEN_SRCS = $(shell find $(GEN_CPP_DIR) -name "*.cpp" 2> /dev/null)
 EMU_SRCS += $(EMU_MAIN_SRCS) $(EMU_GEN_SRCS)
 
-EMU_CFLAGS := -O1 -MMD $(addprefix -I, $(abspath $(GEN_CPP_DIR))) $(EMU_CFLAGS) # allow to overwrite optimization level
+EMU_CFLAGS := -O1 -MMD $(addprefix -I, $(abspath $(GEN_CPP_DIR))) $(addprefix -I, $(GSIM_INC_DIR)) $(EMU_CFLAGS) # allow to overwrite optimization level
 EMU_CFLAGS += $(MODE_FLAGS) $(CFLAGS_DUT) -Wno-parentheses-equality
+EMU_LDFLAGS += -lgmpxx -lgmp
 EMU_CFLAGS += -fbracket-depth=2048
 #EMU_CFLAGS += -fsanitize=address -fsanitize-address-use-after-scope
 #EMU_CFLAGS += -fsanitize=undefined -fsanitize=pointer-compare -fsanitize=pointer-subtract

@@ -39,27 +39,28 @@ class SigFilter():
 
   def genDiffCode(self, modName, refName, line, mod_width, ref_width):
     self.diffSigNum += 1
-    refUName = line[3] + "_u"
-    if mod_width > 128:
-      num = int((ref_width + 31) / 32)
-      self.dstfp.writelines("unsigned _BitInt(" + str(num*32) + ") " + refUName + " = " + refName + "[" + str(num-1) +"U];\n")
-      for i in range(num - 1, 0, -1):
-        self.dstfp.writelines(refUName + " = (" + refUName + " << 32) + " + refName + "[" + str(i-1) + "U];\n")
+    def gmp_shadow_type(width):
+      bits = int((width + 63) / 64) * 64
+      return "GmpShadowU<" + str(bits) + ">"
 
-    refName128 = ""
+    shadow_type = gmp_shadow_type(max(mod_width, ref_width))
+    ref_shadow = line[3] + "_ref_shadow"
     if ref_width > 64:
       num = int((ref_width + 31) / 32)
-      bits = num * 32
-      utype = "unsigned _BitInt(" + str(bits) + ")"
-      for i in range(num):
-        refName128 = refName128 + (" | " if i != 0 else "") + "((" + utype + ")" + refName + "[" + str(i) + "] << " + str(i * 32) + ")"
-      refName = refName.lstrip("ref->rootp->") + "_" + str(bits)
-      self.dstfp.writelines(utype + " " + refName + " = " + refName128 + ";\n")
-    mask = (hex((1 << mod_width) - 1) + "u" if mod_width <= 64 else
-            "((unsigned _BitInt(" + str(mod_width) + "))0 - 1)")
-    self.dstfp.writelines("if( display || (((" + modName + " ^ " + refName + ") & " + mask + ") != 0)) {\n" + \
-                          "  ret = true;\n" + \
-                          "  std::cout << std::hex << \"" + line[2] + ": \" ")
+      self.dstfp.writelines(shadow_type + " " + ref_shadow + " = 0;\n")
+      for i in range(num - 1, -1, -1):
+        self.dstfp.writelines(ref_shadow + " = (" + ref_shadow + " << 32) + " + refName + "[" + str(i) + "U];\n")
+    else:
+      self.dstfp.writelines(shadow_type + " " + ref_shadow + " = (" + shadow_type + ")" + refName + ";\n")
+    refName = ref_shadow
+
+    shadow_bits = int((max(mod_width, ref_width) + 63) / 64) * 64
+    if mod_width < shadow_bits:
+      mask = "((" + shadow_type + ")1 << " + str(mod_width) + ") - 1"
+    else:
+      mask = "((" + shadow_type + ")0 - 1)"
+
+    self.dstfp.writelines("if( display || (((" + modName + " ^ " + refName + ") & " + mask + ") != 0)) {\n" +                           "  ret = true;\n" +                           "  std::cout << std::hex << \"" + line[2] + ": \" ")
     num = int((mod_width + 63) / 64)
     for i in range(num - 1, -1, -1):
       self.dstfp.writelines(" << (uint64_t)(" + modName + " >> " + str(i * 64) + ") << '_'")

@@ -20,6 +20,16 @@
 #include <map>
 #include <gmp.h>
 #include <cstdarg>
+#include <type_traits>
+
+#ifndef ENABLE_GMP_SHADOW
+#define ENABLE_GMP_SHADOW 1
+#endif
+
+#if ENABLE_GMP_SHADOW
+#include <gmpxx.h>
+#include "gmp_int.h"
+#endif
 
 #define NR_THREAD 10
 #define ORDERED_TOPO_SORT
@@ -47,6 +57,19 @@
 #define widthType(width, sign)                     \
   (sign ? widthSType(width) : widthUType(width))
 
+#if ENABLE_GMP_SHADOW
+#define widthUType(width) \
+  std::string(width <= 8 ? "uint8_t" : \
+            (width <= 16 ? "uint16_t" : \
+            (width <= 32 ? "uint32_t" : \
+            (width <= 64 ? "uint64_t" : format("GmpShadowU<%d>", ROUNDUP(width, 64))))))
+
+#define widthSType(width) \
+  std::string(width <= 8 ? "int8_t" : \
+            (width <= 16 ? "int16_t" : \
+            (width <= 32 ? "int32_t" : \
+            (width <= 64 ? "int64_t" : format("GmpShadowS<%d>", ROUNDUP(width, 64))))))
+#else
 #define widthUType(width) \
   std::string(width <= 8 ? "uint8_t" : \
             (width <= 16 ? "uint16_t" : \
@@ -58,6 +81,7 @@
             (width <= 16 ? "int16_t" : \
             (width <= 32 ? "int32_t" : \
             (width <= 64 ? "int64_t" : format("_BitInt(%d)", ROUNDUP(width, 64))))))
+#endif
 
 #define widthBits(width) \
         (width <= 8 ? 8 : \

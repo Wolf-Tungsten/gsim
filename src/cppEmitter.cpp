@@ -163,6 +163,8 @@ FILE* graph::genHeaderStart() {
   includeLib(header, "cstring", true);
   includeLib(header, "map", true);
   includeLib(header, "cstdarg", true);
+  fprintf(header, "#ifndef ENABLE_GMP_SHADOW\n#define ENABLE_GMP_SHADOW 1\n#endif\n");
+  includeLib(header, "gmp_int.h", false);
   newLine(header);
 
   fprintf(header, "\n// User configuration\n");
