@@ -1,41 +1,51 @@
 # GMP migration plan (replace `_BitInt`)
 
 ## Goals
-- Drop reliance on `_BitInt` in generated simulators to relax compiler requirements and widen toolchain support.
-- Keep the fast path for narrow signals (<=64 bits) while routing all wider arithmetic to GMP.
-- Preserve runtime performance by limiting allocations/copies and keeping masking overhead low when using GMP-backed paths.
+- Remove `_BitInt` reliance so generated simulators build on broader toolchains without raising compiler version requirements.
+- Keep the native fast path for widths <=64 bits and route wider arithmetic through a GMP-backed wrapper.
+- Protect runtime performance by minimizing allocations/copies inside hot loops and keeping masking overhead low.
 
-## Current `_BitInt` footprint
-- Type selection macros emit `_BitInt` for widths above 64 bits (`include/common.h:50-66`).
-- Generated C++ headers enforce `__BITINT_MAXWIDTH__` and a clang-19 floor (`src/cppEmitter.cpp:182-191`).
-- Difftest signal checker code-gen builds `_BitInt` temporaries to reconstruct wide values (`scripts/sigFilter.py:40-92`).
+## Status
+- Type-selection macros now map widths above 64 bits to GMP-backed types only (`include/common.h`); `_BitInt` is no longer emitted.
+- The previous shadow/copilot path that paired GMP with `_BitInt` inside one binary has been removed from codegen and build scripts to avoid extra runtime overhead.
 
-## Proposed GMP runtime model
-- Use native integers for <=64-bit signals; introduce a GMP-backed wrapper (e.g., `GmpInt`) for wider values that stores `mpz_class` plus declared width.
-- Provide width-aware helpers (masking after every write/op, bit-slice, concat, shifts, comparisons) so generated code can stay readable and constant folding remains correct.
-- Expose conversions between `GmpInt` and raw `uint64_t` chunks to interop with Verilator `WData` arrays and existing harness I/O.
-- Treat performance as first-class: reuse scratch buffers, avoid constructing/destroying `mpz_class` inside hot loops, and keep helper APIs allocation-conscious.
+## Runtime model
+- <=64-bit signals use standard integers; wider signals use `GmpWideU/S` wrappers over `mpz_class` with width-aware masking.
+- Wrappers support arithmetic, bitwise ops, shifts, comparisons, and chunked import/export for Verilator-style arrays while normalizing results to the declared width.
+- Performance remains the priority: we reuse `mpz_class` storage, avoid unnecessary temporaries in generated code, and keep masking logic centralized inside the helper.
 
-## Replacement plan (two-phase rollout)
-1. **Phase 1: GMP shadow path (fine-grained, single binary)**
-   - Add a GMP helper header (e.g., `include/gmp_int.h`) defining `GmpInt`, constructors from `uint64_t`/arrays, masking, and common ops (add/sub/mul/div/mod/and/or/xor/not/neg/concat/bits/shl/shr/mux/compare), with minimal heap traffic.
-   - Keep existing `_BitInt`-based types/macros; add parallel `widthUTypeGmp/widthSTypeGmp` (or equivalent) and emit both representations into a single generated binary: GMP is the authoritative path, `_BitInt` is a shadow/copilot for correctness checks.
-   - In codegen (`src/instsGenerator.cpp`, `src/cppEmitter.cpp`), emit dual values per signal (or dual compute paths) so runtime can evaluate with GMP and `_BitInt` side by side; ensure signatures and diff scripts align to the dual layout.
-   - Rewrite `scripts/sigFilter.py` (or add a dual mode) to emit comparisons that, within one executable, check per-signal equality between GMP and `_BitInt`; fail fast on first mismatch, optionally dumping the signal name and values.
-   - Run existing Makefile flows once; the produced simulator performs self-checks (GMP result vs `_BitInt` shadow) during execution. Track performance of the GMP primary path and keep shadow checks guarded/optional to bound overhead (e.g., compile-time flag or runtime knob).
-2. **Phase 2: Remove `_BitInt`**
-   - Switch `widthUType/widthSType` to the GMP-backed wrappers for widths >64; drop `_BitInt` capability checks and legacy codepaths.
-   - Update `bitMask`/`legalCppCons` and emitted headers to rely solely on GMP helpers; remove `_BitInt`-specific code/comments.
-   - Clean diff scripts and harness to use GMP paths only; keep native <=64-bit fast paths.
-   - Keep Phase 1 shadow support as an opt-in compile-time flag (e.g., `-DENABLE_GMP_SHADOW=1`) so production builds stay on the GMP-only path without overhead.
-   - Regenerate sample outputs, run Makefile flows, and verify performance remains within prior targets.
+## Rollout
+1. **Phase 1 (complete, retired)**: Built a single simulator carrying both GMP (primary) and `_BitInt` (shadow) paths to validate equivalence. This path is now removed from production builds for speed.
+2. **Phase 2 (current)**: Production code is GMP-only. `widthUType/widthSType` emit GMP types for widths >64; code generators and difftest helpers use GMP exclusively, with no shadow or `_BitInt` fallback compiled in.
 
 ## Validation
-- Reuse existing Makefile flows (`make build-gsim`, `make run dutName=<preset>`, ready-to-run designs) under GCC/clang.
-- Phase 1: a single generated simulator carries both GMP (primary) and `_BitInt` (shadow) paths; enable per-signal self-checks and fail fast on mismatches using existing difftest/compare targets (including wide >256-bit signals). Keep a flag to disable shadow checks for performance measurements.
-- Phase 2: after dropping `_BitInt`, rerun the same flows and perf targets/counters to confirm correctness and runtime stability; no new cases needed.
+- Reuse existing Makefile flows (`make build-gsim`, `make run dutName=ysyx3`, and ready-to-run presets). No new cases are required.
+- The GMP-only simulator is the correctness reference; regression runs should confirm identical behavior with reduced runtime overhead.
 
-## Risks / open points
-- GMP performance and heap churn for very wide vectors; may need pooling or scratch buffers.
-- Copy semantics of `mpz_class` vs `mpz_t` in hot paths; wrapper design should avoid extra allocations.
-- Interaction with Verilator scheduling if `GmpInt` constructors/destructors become expensive; consider arena allocation for generated state arrays.
+## Risks / follow-ups
+- GMP allocation churn for extremely wide vectors; profile hot paths and consider pooling or tuned GMP builds if performance regresses.
+- Ensure linked GMP libraries are optimized on target platforms to preserve runtime performance gains.
+
+## Speedtest
+```
+cycles 10010000 (99380 ms, 100724 per sec) simulation process 91.00% 
+[    1.350000] Freeing unused kernel memory: 60K
+[    1.370000] This architecture does not havcycles 10120000 (100482 ms, 100714 per sec) simulation process 92.00% 
+e kernel memory protection.
+cycles 10230000 (101593 ms, 100695 per sec) simulation process 93.00% 
+cycles 10340000 (102705 ms, 100676 per sec) simulation process 94.00% 
+cycles 10450000 (103938 ms, 100540 per sec) simulation process 95.00% 
+Hello, RISC-V World!
+hanging
+cycles 10560000 (105003 ms, 100568 per sec) simulation process 96.00% 
+cycles 10670000 (106040 ms, 100622 per sec) simulation process 97.00% 
+cycles 10780000 (107122 ms, 100632 per sec) simulation process 98.00% 
+cycles 10890000 (108138 ms, 100704 per sec) simulation process 99.00% 
+cycles 11000000 (109172 ms, 100758 per sec) simulation process 100.00% 
+109.15user 0.05system 1:49.23elapsed 99%CPU (0avgtext+0avgdata 86128maxresident)k
+0inputs+0outputs (0major+20824minor)pagefaults 0swaps
+make[2]: Leaving directory '/home/gaoruihao/gsim'
+make[1]: Leaving directory '/home/gaoruihao/gsim'
+114.67user 0.58system 1:55.21elapsed 100%CPU (0avgtext+0avgdata 198460maxresident)k
+0inputs+5064outputs (0major+133063minor)pagefaults 0swaps
+```

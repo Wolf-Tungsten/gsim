@@ -18,14 +18,10 @@
 #include <algorithm>
 #include <set>
 #include <map>
-#include <gmp.h>
 #include <cstdarg>
 #include <type_traits>
 
-#ifndef ENABLE_GMP_SHADOW
-#define ENABLE_GMP_SHADOW 0
-#endif
-
+#include <gmp.h>
 #include <gmpxx.h>
 #include "gmp_int.h"
 
