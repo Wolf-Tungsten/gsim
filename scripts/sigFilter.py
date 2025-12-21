@@ -41,7 +41,7 @@ class SigFilter():
     self.diffSigNum += 1
     def gmp_shadow_type(width):
       bits = int((width + 63) / 64) * 64
-      return "GmpShadowU<" + str(bits) + ">"
+      return "GmpWideU<" + str(bits) + ">"
 
     shadow_type = gmp_shadow_type(max(mod_width, ref_width))
     ref_shadow = line[3] + "_ref_shadow"

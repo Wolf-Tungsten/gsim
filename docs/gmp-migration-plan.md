@@ -27,6 +27,7 @@
    - Switch `widthUType/widthSType` to the GMP-backed wrappers for widths >64; drop `_BitInt` capability checks and legacy codepaths.
    - Update `bitMask`/`legalCppCons` and emitted headers to rely solely on GMP helpers; remove `_BitInt`-specific code/comments.
    - Clean diff scripts and harness to use GMP paths only; keep native <=64-bit fast paths.
+   - Keep Phase 1 shadow support as an opt-in compile-time flag (e.g., `-DENABLE_GMP_SHADOW=1`) so production builds stay on the GMP-only path without overhead.
    - Regenerate sample outputs, run Makefile flows, and verify performance remains within prior targets.
 
 ## Validation

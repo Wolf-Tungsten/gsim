@@ -163,7 +163,6 @@ FILE* graph::genHeaderStart() {
   includeLib(header, "cstring", true);
   includeLib(header, "map", true);
   includeLib(header, "cstdarg", true);
-  fprintf(header, "#ifndef ENABLE_GMP_SHADOW\n#define ENABLE_GMP_SHADOW 1\n#endif\n");
   includeLib(header, "gmp_int.h", false);
   newLine(header);
 
@@ -180,17 +179,6 @@ FILE* graph::genHeaderStart() {
                      "}"
                    "} while (0)\n");
   fprintf(header, "#define gdiv(a, b) ((b) == 0 ? 0 : (a) / (b))\n");
-
-  fprintf(header, "#ifndef __BITINT_MAXWIDTH__\n");
-  fprintf(header, "#error  BITINT support is required\n");
-  fprintf(header, "#endif\n\n");
-
-  /* There is some bugs with _BitInt in clang 18 */
-  fprintf(header, "#ifdef __clang__\n");
-  fprintf(header, "#if __clang_major__ < 19\n");
-  fprintf(header, "#error  Please compile with clang 19 or above\n");
-  fprintf(header, "#endif\n");
-  fprintf(header, "#endif // __clang__ \n\n");
 
   fprintf(header, "#define likely(x) __builtin_expect(!!(x), 1)\n");
   fprintf(header, "#define unlikely(x) __builtin_expect(!!(x), 0)\n");
