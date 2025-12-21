@@ -26,26 +26,41 @@
 - GMP allocation churn for extremely wide vectors; profile hot paths and consider pooling or tuned GMP builds if performance regresses.
 - Ensure linked GMP libraries are optimized on target platforms to preserve runtime performance gains.
 
+## Performance optimization plan
+- [done] Cut allocations: move the wrapper to reuse `mpz_t` storage (preallocate with `mpz_init2`) and avoid constructing transient `mpz_class` objects in hot paths; codegen already reuses temporaries for concat/shift/compare.
+- [done] Trim masking: centralize normalization at mutation points (assignments and in-place ops) to keep width-bounded results.
+- [done] Stay low-level: replace `mpz_class` helpers in the wrapper with direct `__gmpz_*` calls for arithmetic/bitwise ops; narrow (<=64-bit) paths stay on native integers.
+- [todo] Build for the host: compile the simulator with `-O3 -march=native` (and LTO if acceptable); ensure GMP is built with platform-tuned assembly (e.g., `--enable-fat` or a native-tuned build) to reduce limb overhead.
+- [todo] Measure before/after: profile with `perf` or sampling to confirm hotspots (allocation/normalization vs arithmetic), then iterate on the highest-impact sites.
+
 ## Speedtest
 ```
-cycles 10010000 (99380 ms, 100724 per sec) simulation process 91.00% 
+cycles 9130000 (74230 ms, 122996 per sec) simulation process 83.00% 
+cycles 9240000 (75155 ms, 122945 per sec) simulation process 84.00% 
+cycles 9350000 (76168 ms, 122754 per sec) simulation process 85.00% 
+cycles 9460000 (77128 ms, 122653 per sec) simulation process 86.00% 
+cycles 9570000 (78046 ms, 122619 per sec) simulation process 87.00% 
+cycles 9680000 (78976 ms, 122568 per sec) simulation process 88.00% 
+cycles 9790000 (79894 ms, 122537 per sec) simulation process 89.00% 
+cycles 9900000 (80834 ms, 122473 per sec) simulation process 90.00% 
+cycles 10010000 (81774 ms, 122410 per sec) simulation process 91.00% 
 [    1.350000] Freeing unused kernel memory: 60K
-[    1.370000] This architecture does not havcycles 10120000 (100482 ms, 100714 per sec) simulation process 92.00% 
+[    1.370000] This architecture does not havcycles 10120000 (82682 ms, 122396 per sec) simulation process 92.00% 
 e kernel memory protection.
-cycles 10230000 (101593 ms, 100695 per sec) simulation process 93.00% 
-cycles 10340000 (102705 ms, 100676 per sec) simulation process 94.00% 
-cycles 10450000 (103938 ms, 100540 per sec) simulation process 95.00% 
+cycles 10230000 (83607 ms, 122358 per sec) simulation process 93.00% 
+cycles 10340000 (84517 ms, 122342 per sec) simulation process 94.00% 
+cycles 10450000 (85442 ms, 122305 per sec) simulation process 95.00% 
 Hello, RISC-V World!
 hanging
-cycles 10560000 (105003 ms, 100568 per sec) simulation process 96.00% 
-cycles 10670000 (106040 ms, 100622 per sec) simulation process 97.00% 
-cycles 10780000 (107122 ms, 100632 per sec) simulation process 98.00% 
-cycles 10890000 (108138 ms, 100704 per sec) simulation process 99.00% 
-cycles 11000000 (109172 ms, 100758 per sec) simulation process 100.00% 
-109.15user 0.05system 1:49.23elapsed 99%CPU (0avgtext+0avgdata 86128maxresident)k
-0inputs+0outputs (0major+20824minor)pagefaults 0swaps
+cycles 10560000 (86322 ms, 122332 per sec) simulation process 96.00% 
+cycles 10670000 (87225 ms, 122327 per sec) simulation process 97.00% 
+cycles 10780000 (88087 ms, 122379 per sec) simulation process 98.00% 
+cycles 10890000 (88924 ms, 122464 per sec) simulation process 99.00% 
+cycles 11000000 (89803 ms, 122490 per sec) simulation process 100.00% 
+89.76user 0.07system 1:29.85elapsed 99%CPU (0avgtext+0avgdata 86544maxresident)k
+0inputs+0outputs (0major+20832minor)pagefaults 0swaps
 make[2]: Leaving directory '/home/gaoruihao/gsim'
 make[1]: Leaving directory '/home/gaoruihao/gsim'
-114.67user 0.58system 1:55.21elapsed 100%CPU (0avgtext+0avgdata 198460maxresident)k
-0inputs+5064outputs (0major+133063minor)pagefaults 0swaps
+89.88user 0.23system 1:30.13elapsed 99%CPU (0avgtext+0avgdata 86544maxresident)k
+0inputs+0outputs (0major+41184minor)pagefaults 0swaps
 ```
