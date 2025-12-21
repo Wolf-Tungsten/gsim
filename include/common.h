@@ -23,7 +23,7 @@
 
 #include <gmp.h>
 #include <gmpxx.h>
-#include "gmp_int.h"
+#include "GsimInt.h"
 
 #define NR_THREAD 10
 #define ORDERED_TOPO_SORT
@@ -55,13 +55,13 @@
   std::string(width <= 8 ? "uint8_t" : \
             (width <= 16 ? "uint16_t" : \
             (width <= 32 ? "uint32_t" : \
-            (width <= 64 ? "uint64_t" : format("GmpWideU<%d>", ROUNDUP(width, 64))))))
+            (width <= 64 ? "uint64_t" : format("GsimWideU<%d>", ROUNDUP(width, 64))))))
 
 #define widthSType(width) \
   std::string(width <= 8 ? "int8_t" : \
             (width <= 16 ? "int16_t" : \
             (width <= 32 ? "int32_t" : \
-            (width <= 64 ? "int64_t" : format("GmpWideS<%d>", ROUNDUP(width, 64))))))
+            (width <= 64 ? "int64_t" : format("GsimWideS<%d>", ROUNDUP(width, 64))))))
 
 #define widthBits(width) \
         (width <= 8 ? 8 : \

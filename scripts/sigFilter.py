@@ -41,7 +41,7 @@ class SigFilter():
     self.diffSigNum += 1
     def gmp_wide_type(width):
       bits = int((width + 63) / 64) * 64
-      return "GmpWideU<" + str(bits) + ">"
+      return "GsimWideU<" + str(bits) + ">"
 
     wide_type = gmp_wide_type(max(mod_width, ref_width))
     ref_accum = line[3] + "_ref_gmp"

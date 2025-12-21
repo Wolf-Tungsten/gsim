@@ -163,7 +163,7 @@ FILE* graph::genHeaderStart() {
   includeLib(header, "cstring", true);
   includeLib(header, "map", true);
   includeLib(header, "cstdarg", true);
-  includeLib(header, "gmp_int.h", false);
+  includeLib(header, "GsimInt.h", false);
   newLine(header);
 
   fprintf(header, "\n// User configuration\n");

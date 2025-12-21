@@ -1,5 +1,5 @@
-#ifndef GSIM_GMP_INT_H
-#define GSIM_GMP_INT_H
+#ifndef GSIM_GSIM_INT_H
+#define GSIM_GSIM_INT_H
 
 #include <array>
 #include <cstdint>
@@ -12,7 +12,7 @@
 namespace gsim {
 
 template<int WIDTH, bool SIGNED>
-class GmpInt {
+class GsimInt {
  public:
   static_assert(WIDTH > 0, "WIDTH must be positive");
   using limb_t = uint64_t;
@@ -24,106 +24,106 @@ class GmpInt {
       ? ~limb_t(0)
       : ((limb_t(1) << (WIDTH % kLimbBits)) - 1);
 
-  GmpInt() { zero(); }
+  GsimInt() { zero(); }
 
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  explicit GmpInt(T v) { assign_integral(v); }
+  explicit GsimInt(T v) { assign_integral(v); }
 
-  GmpInt(const GmpInt& other) = default;
-  GmpInt& operator=(const GmpInt& other) = default;
-  GmpInt(GmpInt&& other) noexcept = default;
-  GmpInt& operator=(GmpInt&& other) noexcept = default;
+  GsimInt(const GsimInt& other) = default;
+  GsimInt& operator=(const GsimInt& other) = default;
+  GsimInt(GsimInt&& other) noexcept = default;
+  GsimInt& operator=(GsimInt&& other) noexcept = default;
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt& operator=(T v) { assign_integral(v); return *this; }
+  GsimInt& operator=(T v) { assign_integral(v); return *this; }
 
   template<int OTHER_W, bool OTHER_S, typename = std::enable_if_t<(OTHER_W != WIDTH) || (OTHER_S != SIGNED)>>
-  GmpInt(const GmpInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); }
+  GsimInt(const GsimInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); }
   template<int OTHER_W, bool OTHER_S, typename = std::enable_if_t<(OTHER_W != WIDTH) || (OTHER_S != SIGNED)>>
-  GmpInt& operator=(const GmpInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); return *this; }
+  GsimInt& operator=(const GsimInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); return *this; }
 
   operator uint64_t() const { return data_[0]; }
 
   // Arithmetic
-  GmpInt operator+(const GmpInt& rhs) const { return add(rhs); }
-  GmpInt operator-(const GmpInt& rhs) const { return sub(rhs); }
-  GmpInt operator*(const GmpInt& rhs) const { return mul(rhs); }
-  GmpInt operator/(const GmpInt& rhs) const { return div(rhs, nullptr); }
-  GmpInt operator%(const GmpInt& rhs) const { GmpInt rem; (void)div(rhs, &rem); return rem; }
+  GsimInt operator+(const GsimInt& rhs) const { return add(rhs); }
+  GsimInt operator-(const GsimInt& rhs) const { return sub(rhs); }
+  GsimInt operator*(const GsimInt& rhs) const { return mul(rhs); }
+  GsimInt operator/(const GsimInt& rhs) const { return div(rhs, nullptr); }
+  GsimInt operator%(const GsimInt& rhs) const { GsimInt rem; (void)div(rhs, &rem); return rem; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator+(T rhs) const { return *this + GmpInt(rhs); }
+  GsimInt operator+(T rhs) const { return *this + GsimInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator-(T rhs) const { return *this - GmpInt(rhs); }
+  GsimInt operator-(T rhs) const { return *this - GsimInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator*(T rhs) const { return *this * GmpInt(rhs); }
+  GsimInt operator*(T rhs) const { return *this * GsimInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator/(T rhs) const { return *this / GmpInt(rhs); }
+  GsimInt operator/(T rhs) const { return *this / GsimInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator%(T rhs) const { return *this % GmpInt(rhs); }
+  GsimInt operator%(T rhs) const { return *this % GsimInt(rhs); }
 
-  GmpInt& operator+=(const GmpInt& rhs) { *this = add(rhs); return *this; }
-  GmpInt& operator-=(const GmpInt& rhs) { *this = sub(rhs); return *this; }
-  GmpInt& operator*=(const GmpInt& rhs) { *this = mul(rhs); return *this; }
-  GmpInt& operator/=(const GmpInt& rhs) { *this = div(rhs, nullptr); return *this; }
-  GmpInt& operator%=(const GmpInt& rhs) { GmpInt rem; *this = div(rhs, &rem); *this = rem; return *this; }
+  GsimInt& operator+=(const GsimInt& rhs) { *this = add(rhs); return *this; }
+  GsimInt& operator-=(const GsimInt& rhs) { *this = sub(rhs); return *this; }
+  GsimInt& operator*=(const GsimInt& rhs) { *this = mul(rhs); return *this; }
+  GsimInt& operator/=(const GsimInt& rhs) { *this = div(rhs, nullptr); return *this; }
+  GsimInt& operator%=(const GsimInt& rhs) { GsimInt rem; *this = div(rhs, &rem); *this = rem; return *this; }
 
   // Bitwise
-  GmpInt operator&(const GmpInt& rhs) const { return bitwise(rhs, [](limb_t a, limb_t b) { return a & b; }); }
-  GmpInt operator|(const GmpInt& rhs) const { return bitwise(rhs, [](limb_t a, limb_t b) { return a | b; }); }
-  GmpInt operator^(const GmpInt& rhs) const { return bitwise(rhs, [](limb_t a, limb_t b) { return a ^ b; }); }
+  GsimInt operator&(const GsimInt& rhs) const { return bitwise(rhs, [](limb_t a, limb_t b) { return a & b; }); }
+  GsimInt operator|(const GsimInt& rhs) const { return bitwise(rhs, [](limb_t a, limb_t b) { return a | b; }); }
+  GsimInt operator^(const GsimInt& rhs) const { return bitwise(rhs, [](limb_t a, limb_t b) { return a ^ b; }); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator&(T rhs) const { return *this & GmpInt(rhs); }
+  GsimInt operator&(T rhs) const { return *this & GsimInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator|(T rhs) const { return *this | GmpInt(rhs); }
+  GsimInt operator|(T rhs) const { return *this | GsimInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator^(T rhs) const { return *this ^ GmpInt(rhs); }
-  GmpInt& operator&=(const GmpInt& rhs) { *this = *this & rhs; return *this; }
-  GmpInt& operator|=(const GmpInt& rhs) { *this = *this | rhs; return *this; }
-  GmpInt& operator^=(const GmpInt& rhs) { *this = *this ^ rhs; return *this; }
-  GmpInt operator~() const { GmpInt ret; for (size_t i = 0; i < kLimbCount; ++i) ret.data_[i] = ~data_[i]; ret.apply_mask(); return ret; }
-  GmpInt operator-() const { return neg(); }
+  GsimInt operator^(T rhs) const { return *this ^ GsimInt(rhs); }
+  GsimInt& operator&=(const GsimInt& rhs) { *this = *this & rhs; return *this; }
+  GsimInt& operator|=(const GsimInt& rhs) { *this = *this | rhs; return *this; }
+  GsimInt& operator^=(const GsimInt& rhs) { *this = *this ^ rhs; return *this; }
+  GsimInt operator~() const { GsimInt ret; for (size_t i = 0; i < kLimbCount; ++i) ret.data_[i] = ~data_[i]; ret.apply_mask(); return ret; }
+  GsimInt operator-() const { return neg(); }
 
   // Shifts
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator<<(T shift) const { return shl(static_cast<unsigned>(shift)); }
+  GsimInt operator<<(T shift) const { return shl(static_cast<unsigned>(shift)); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt operator>>(T shift) const { return shr(static_cast<unsigned>(shift)); }
+  GsimInt operator>>(T shift) const { return shr(static_cast<unsigned>(shift)); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt& operator<<=(T shift) { *this = shl(static_cast<unsigned>(shift)); return *this; }
+  GsimInt& operator<<=(T shift) { *this = shl(static_cast<unsigned>(shift)); return *this; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  GmpInt& operator>>=(T shift) { *this = shr(static_cast<unsigned>(shift)); return *this; }
+  GsimInt& operator>>=(T shift) { *this = shr(static_cast<unsigned>(shift)); return *this; }
 
   // Comparisons
-  bool operator==(const GmpInt& rhs) const { return data_ == rhs.data_; }
-  bool operator!=(const GmpInt& rhs) const { return !(*this == rhs); }
-  bool operator<(const GmpInt& rhs) const { return compare(rhs) < 0; }
-  bool operator>(const GmpInt& rhs) const { return rhs < *this; }
-  bool operator<=(const GmpInt& rhs) const { return !(*this > rhs); }
-  bool operator>=(const GmpInt& rhs) const { return !(*this < rhs); }
+  bool operator==(const GsimInt& rhs) const { return data_ == rhs.data_; }
+  bool operator!=(const GsimInt& rhs) const { return !(*this == rhs); }
+  bool operator<(const GsimInt& rhs) const { return compare(rhs) < 0; }
+  bool operator>(const GsimInt& rhs) const { return rhs < *this; }
+  bool operator<=(const GsimInt& rhs) const { return !(*this > rhs); }
+  bool operator>=(const GsimInt& rhs) const { return !(*this < rhs); }
 
-  friend std::ostream& operator<<(std::ostream& os, const GmpInt& v) {
+  friend std::ostream& operator<<(std::ostream& os, const GsimInt& v) {
     os << v.to_hex();
     return os;
   }
 
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator+(T lhs, const GmpInt& rhs) { return GmpInt(lhs) + rhs; }
+  friend GsimInt operator+(T lhs, const GsimInt& rhs) { return GsimInt(lhs) + rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator-(T lhs, const GmpInt& rhs) { return GmpInt(lhs) - rhs; }
+  friend GsimInt operator-(T lhs, const GsimInt& rhs) { return GsimInt(lhs) - rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator*(T lhs, const GmpInt& rhs) { return GmpInt(lhs) * rhs; }
+  friend GsimInt operator*(T lhs, const GsimInt& rhs) { return GsimInt(lhs) * rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator/(T lhs, const GmpInt& rhs) { return GmpInt(lhs) / rhs; }
+  friend GsimInt operator/(T lhs, const GsimInt& rhs) { return GsimInt(lhs) / rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator%(T lhs, const GmpInt& rhs) { return GmpInt(lhs) % rhs; }
+  friend GsimInt operator%(T lhs, const GsimInt& rhs) { return GsimInt(lhs) % rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator&(T lhs, const GmpInt& rhs) { return GmpInt(lhs) & rhs; }
+  friend GsimInt operator&(T lhs, const GsimInt& rhs) { return GsimInt(lhs) & rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator|(T lhs, const GmpInt& rhs) { return GmpInt(lhs) | rhs; }
+  friend GsimInt operator|(T lhs, const GsimInt& rhs) { return GsimInt(lhs) | rhs; }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-  friend GmpInt operator^(T lhs, const GmpInt& rhs) { return GmpInt(lhs) ^ rhs; }
+  friend GsimInt operator^(T lhs, const GsimInt& rhs) { return GsimInt(lhs) ^ rhs; }
 
  private:
-  template<int, bool> friend class GmpInt;
+  template<int, bool> friend class GsimInt;
   std::array<limb_t, kLimbCount> data_{};
 
   template<typename U>
@@ -163,7 +163,7 @@ class GmpInt {
   }
 
   template<int OTHER_W, bool OTHER_S>
-  void assign_from_other(const GmpInt<OTHER_W, OTHER_S>& other) {
+  void assign_from_other(const GsimInt<OTHER_W, OTHER_S>& other) {
     zero();
     constexpr size_t min_limbs = (OTHER_W + kLimbBits - 1) / kLimbBits < kLimbCount
                                    ? (OTHER_W + kLimbBits - 1) / kLimbBits
@@ -188,7 +188,7 @@ class GmpInt {
     return 0;
   }
 
-  int compare(const GmpInt& rhs) const {
+  int compare(const GsimInt& rhs) const {
     if constexpr (SIGNED) {
       const bool neg_lhs = is_negative();
       const bool neg_rhs = rhs.is_negative();
@@ -198,15 +198,15 @@ class GmpInt {
   }
 
   template<typename Func>
-  GmpInt bitwise(const GmpInt& rhs, Func func) const {
-    GmpInt ret;
+  GsimInt bitwise(const GsimInt& rhs, Func func) const {
+    GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) ret.data_[i] = func(data_[i], rhs.data_[i]);
     ret.apply_mask();
     return ret;
   }
 
-  GmpInt add(const GmpInt& rhs) const {
-    GmpInt ret;
+  GsimInt add(const GsimInt& rhs) const {
+    GsimInt ret;
     unsigned __int128 carry = 0;
     for (size_t i = 0; i < kLimbCount; ++i) {
       unsigned __int128 sum = static_cast<unsigned __int128>(data_[i]) + rhs.data_[i] + carry;
@@ -217,8 +217,8 @@ class GmpInt {
     return ret;
   }
 
-  GmpInt sub(const GmpInt& rhs) const {
-    GmpInt ret;
+  GsimInt sub(const GsimInt& rhs) const {
+    GsimInt ret;
     unsigned __int128 borrow = 0;
     for (size_t i = 0; i < kLimbCount; ++i) {
       unsigned __int128 diff = static_cast<unsigned __int128>(data_[i]) - rhs.data_[i] - borrow;
@@ -229,8 +229,8 @@ class GmpInt {
     return ret;
   }
 
-  GmpInt mul(const GmpInt& rhs) const {
-    GmpInt ret;
+  GsimInt mul(const GsimInt& rhs) const {
+    GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) {
       unsigned __int128 carry = 0;
       for (size_t j = 0; j + i < kLimbCount; ++j) {
@@ -283,8 +283,8 @@ class GmpInt {
     }
   }
 
-  static void divmod_unsigned(const GmpInt& lhs, const GmpInt& rhs,
-                              GmpInt& quot, GmpInt& rem) {
+  static void divmod_unsigned(const GsimInt& lhs, const GsimInt& rhs,
+                              GsimInt& quot, GsimInt& rem) {
     quot.zero();
     rem.zero();
     if (is_zero(rhs.data_)) return;
@@ -306,13 +306,13 @@ class GmpInt {
     rem.apply_mask();
   }
 
-  GmpInt abs_value() const {
+  GsimInt abs_value() const {
     if (is_negative()) return neg();
     return *this;
   }
 
-  GmpInt neg() const {
-    GmpInt ret;
+  GsimInt neg() const {
+    GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) ret.data_[i] = ~data_[i];
     unsigned __int128 carry = 1;
     for (size_t i = 0; i < kLimbCount; ++i) {
@@ -325,8 +325,8 @@ class GmpInt {
     return ret;
   }
 
-  GmpInt div(const GmpInt& rhs, GmpInt* rem_out) const {
-    GmpInt quot, rem;
+  GsimInt div(const GsimInt& rhs, GsimInt* rem_out) const {
+    GsimInt quot, rem;
     if constexpr (!SIGNED) {
       divmod_unsigned(*this, rhs, quot, rem);
     } else {
@@ -336,14 +336,14 @@ class GmpInt {
       } else {
         const bool neg_lhs = is_negative();
         const bool neg_rhs = rhs.is_negative();
-        GmpInt lhs_abs = abs_value();
-        GmpInt rhs_abs = rhs.abs_value();
+        GsimInt lhs_abs = abs_value();
+        GsimInt rhs_abs = rhs.abs_value();
         divmod_unsigned(lhs_abs, rhs_abs, quot, rem);
         if (neg_lhs != neg_rhs) {
           if (!is_zero(rem.data_)) {
-            GmpInt one(1);
+            GsimInt one(1);
             quot = (quot.add(one)).neg();
-            GmpInt adj = rhs_abs.sub(rem);
+            GsimInt adj = rhs_abs.sub(rem);
             rem = neg_rhs ? adj.neg() : adj;
           } else {
             quot = quot.neg();
@@ -359,9 +359,9 @@ class GmpInt {
     return quot;
   }
 
-  GmpInt shl(unsigned shift) const {
-    if (shift >= static_cast<unsigned>(WIDTH)) return GmpInt();
-    GmpInt ret;
+  GsimInt shl(unsigned shift) const {
+    if (shift >= static_cast<unsigned>(WIDTH)) return GsimInt();
+    GsimInt ret;
     const unsigned limb_shift = shift / kLimbBits;
     const unsigned bit_shift = shift % kLimbBits;
     for (size_t i = kLimbCount; i-- > 0;) {
@@ -380,15 +380,15 @@ class GmpInt {
     return ret;
   }
 
-  GmpInt shr(unsigned shift) const {
+  GsimInt shr(unsigned shift) const {
     if (shift >= static_cast<unsigned>(WIDTH)) {
       if constexpr (SIGNED) {
-        return is_negative() ? all_ones() : GmpInt();
+        return is_negative() ? all_ones() : GsimInt();
       } else {
-        return GmpInt();
+        return GsimInt();
       }
     }
-    GmpInt ret;
+    GsimInt ret;
     const unsigned limb_shift = shift / kLimbBits;
     const unsigned bit_shift = shift % kLimbBits;
     for (size_t i = 0; i < kLimbCount; ++i) {
@@ -420,8 +420,8 @@ class GmpInt {
     return ret;
   }
 
-  static GmpInt all_ones() {
-    GmpInt v;
+  static GsimInt all_ones() {
+    GsimInt v;
     for (auto& x : v.data_) x = ~limb_t(0);
     v.apply_mask();
     return v;
@@ -444,16 +444,16 @@ class GmpInt {
   }
 };
 
-template<int WIDTH> using GmpIntU = GmpInt<WIDTH, false>;
-template<int WIDTH> using GmpIntS = GmpInt<WIDTH, true>;
-template<int WIDTH> using GmpWideU = GmpIntU<WIDTH>;
-template<int WIDTH> using GmpWideS = GmpIntS<WIDTH>;
+template<int WIDTH> using GsimIntU = GsimInt<WIDTH, false>;
+template<int WIDTH> using GsimIntS = GsimInt<WIDTH, true>;
+template<int WIDTH> using GsimWideU = GsimIntU<WIDTH>;
+template<int WIDTH> using GsimWideS = GsimIntS<WIDTH>;
 
 } // namespace gsim
 
-using gsim::GmpIntU;
-using gsim::GmpIntS;
-using gsim::GmpWideU;
-using gsim::GmpWideS;
+using gsim::GsimIntU;
+using gsim::GsimIntS;
+using gsim::GsimWideU;
+using gsim::GsimWideS;
 
-#endif // GSIM_GMP_INT_H
+#endif // GSIM_GSIM_INT_H
