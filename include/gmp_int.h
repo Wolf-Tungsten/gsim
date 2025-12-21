@@ -87,18 +87,18 @@ class GmpInt {
   }
 
   // Bitwise
-  GmpInt operator&(const GmpInt& rhs) const { return binary_op(rhs, __gmpz_and); }
-  GmpInt operator|(const GmpInt& rhs) const { return binary_op(rhs, __gmpz_ior); }
-  GmpInt operator^(const GmpInt& rhs) const { return binary_op(rhs, __gmpz_xor); }
+  GmpInt operator&(const GmpInt& rhs) const { return bitwise_and(rhs); }
+  GmpInt operator|(const GmpInt& rhs) const { return bitwise_or(rhs); }
+  GmpInt operator^(const GmpInt& rhs) const { return bitwise_xor(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
   GmpInt operator&(T rhs) const { return *this & GmpInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
   GmpInt operator|(T rhs) const { return *this | GmpInt(rhs); }
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
   GmpInt operator^(T rhs) const { return *this ^ GmpInt(rhs); }
-  GmpInt& operator&=(const GmpInt& rhs) { __gmpz_and(g_, g_, rhs.g_); normalize(); return *this; }
-  GmpInt& operator|=(const GmpInt& rhs) { __gmpz_ior(g_, g_, rhs.g_); normalize(); return *this; }
-  GmpInt& operator^=(const GmpInt& rhs) { __gmpz_xor(g_, g_, rhs.g_); normalize(); return *this; }
+  GmpInt& operator&=(const GmpInt& rhs) { *this = bitwise_and(rhs); return *this; }
+  GmpInt& operator|=(const GmpInt& rhs) { *this = bitwise_or(rhs); return *this; }
+  GmpInt& operator^=(const GmpInt& rhs) { *this = bitwise_xor(rhs); return *this; }
 
   GmpInt operator~() const { GmpInt ret; mpz_com(ret.g_, g_); ret.normalize(); return ret; }
   GmpInt operator-() const { GmpInt ret; mpz_neg(ret.g_, g_); ret.normalize(); return ret; }
@@ -183,10 +183,10 @@ class GmpInt {
   }
 
   template<typename Op>
-  GmpInt binary_op(const GmpInt& rhs, Op op) const {
+  GmpInt binary_op(const GmpInt& rhs, Op op, bool need_norm = true) const {
     GmpInt ret;
     op(ret.g_, g_, rhs.g_);
-    ret.normalize();
+    if (need_norm) ret.normalize();
     return ret;
   }
 
@@ -224,6 +224,55 @@ class GmpInt {
     mpz_init2(g_, WIDTH);
     mpz_set_ui(g_, 0);
   }
+
+  GmpInt bitwise_and(const GmpInt& rhs) const {
+    GmpInt ret;
+    if constexpr (!SIGNED && WIDTH <= 128) {
+      constexpr size_t count = (WIDTH + 63) / 64;
+      constexpr unsigned bits = WIDTH % 64;
+      mp_limb_t limbs[2] = {0, 0};
+      for (size_t i = 0; i < count; ++i) limbs[i] = mpz_getlimbn(g_, i) & mpz_getlimbn(rhs.g_, i);
+      if constexpr (bits != 0) limbs[count - 1] &= (mp_limb_t(1) << bits) - 1;
+      mpz_import(ret.g_, count, -1, sizeof(mp_limb_t), 0, 0, limbs);
+    } else {
+      __gmpz_and(ret.g_, g_, rhs.g_);
+      if constexpr (SIGNED) ret.normalize();
+    }
+    return ret;
+  }
+
+  GmpInt bitwise_or(const GmpInt& rhs) const {
+    GmpInt ret;
+    if constexpr (!SIGNED && WIDTH <= 128) {
+      constexpr size_t count = (WIDTH + 63) / 64;
+      constexpr unsigned bits = WIDTH % 64;
+      mp_limb_t limbs[2] = {0, 0};
+      for (size_t i = 0; i < count; ++i) limbs[i] = mpz_getlimbn(g_, i) | mpz_getlimbn(rhs.g_, i);
+      if constexpr (bits != 0) limbs[count - 1] &= (mp_limb_t(1) << bits) - 1;
+      mpz_import(ret.g_, count, -1, sizeof(mp_limb_t), 0, 0, limbs);
+    } else {
+      __gmpz_ior(ret.g_, g_, rhs.g_);
+      if constexpr (SIGNED) ret.normalize();
+    }
+    return ret;
+  }
+
+  GmpInt bitwise_xor(const GmpInt& rhs) const {
+    GmpInt ret;
+    if constexpr (!SIGNED && WIDTH <= 128) {
+      constexpr size_t count = (WIDTH + 63) / 64;
+      constexpr unsigned bits = WIDTH % 64;
+      mp_limb_t limbs[2] = {0, 0};
+      for (size_t i = 0; i < count; ++i) limbs[i] = mpz_getlimbn(g_, i) ^ mpz_getlimbn(rhs.g_, i);
+      if constexpr (bits != 0) limbs[count - 1] &= (mp_limb_t(1) << bits) - 1;
+      mpz_import(ret.g_, count, -1, sizeof(mp_limb_t), 0, 0, limbs);
+    } else {
+      __gmpz_xor(ret.g_, g_, rhs.g_);
+      if constexpr (SIGNED) ret.normalize();
+    }
+    return ret;
+  }
+
 };
 
 template<int WIDTH> using GmpIntU = GmpInt<WIDTH, false>;

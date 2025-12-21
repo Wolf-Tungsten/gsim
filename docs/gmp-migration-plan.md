@@ -41,32 +41,23 @@
 
 ## Speedtest
 ```
-cycles 9130000 (74230 ms, 122996 per sec) simulation process 83.00% 
-cycles 9240000 (75155 ms, 122945 per sec) simulation process 84.00% 
-cycles 9350000 (76168 ms, 122754 per sec) simulation process 85.00% 
-cycles 9460000 (77128 ms, 122653 per sec) simulation process 86.00% 
-cycles 9570000 (78046 ms, 122619 per sec) simulation process 87.00% 
-cycles 9680000 (78976 ms, 122568 per sec) simulation process 88.00% 
-cycles 9790000 (79894 ms, 122537 per sec) simulation process 89.00% 
-cycles 9900000 (80834 ms, 122473 per sec) simulation process 90.00% 
-cycles 10010000 (81774 ms, 122410 per sec) simulation process 91.00% 
 [    1.350000] Freeing unused kernel memory: 60K
-[    1.370000] This architecture does not havcycles 10120000 (82682 ms, 122396 per sec) simulation process 92.00% 
+[    1.370000] This architecture does not havcycles 10120000 (53690 ms, 188489 per sec) simulation process 92.00% 
 e kernel memory protection.
-cycles 10230000 (83607 ms, 122358 per sec) simulation process 93.00% 
-cycles 10340000 (84517 ms, 122342 per sec) simulation process 94.00% 
-cycles 10450000 (85442 ms, 122305 per sec) simulation process 95.00% 
+cycles 10230000 (54281 ms, 188463 per sec) simulation process 93.00% 
+cycles 10340000 (54869 ms, 188448 per sec) simulation process 94.00% 
+cycles 10450000 (55467 ms, 188400 per sec) simulation process 95.00% 
 Hello, RISC-V World!
 hanging
-cycles 10560000 (86322 ms, 122332 per sec) simulation process 96.00% 
-cycles 10670000 (87225 ms, 122327 per sec) simulation process 97.00% 
-cycles 10780000 (88087 ms, 122379 per sec) simulation process 98.00% 
-cycles 10890000 (88924 ms, 122464 per sec) simulation process 99.00% 
-cycles 11000000 (89803 ms, 122490 per sec) simulation process 100.00% 
-89.76user 0.07system 1:29.85elapsed 99%CPU (0avgtext+0avgdata 86544maxresident)k
-0inputs+0outputs (0major+20832minor)pagefaults 0swaps
+cycles 10560000 (56025 ms, 188487 per sec) simulation process 96.00% 
+cycles 10670000 (56569 ms, 188619 per sec) simulation process 97.00% 
+cycles 10780000 (57129 ms, 188695 per sec) simulation process 98.00% 
+cycles 10890000 (57660 ms, 188865 per sec) simulation process 99.00% 
+cycles 11000000 (58202 ms, 188996 per sec) simulation process 100.00% 
+58.19user 0.05system 0:58.26elapsed 99%CPU (0avgtext+0avgdata 86332maxresident)k
+0inputs+0outputs (0major+20829minor)pagefaults 0swaps
 make[2]: Leaving directory '/home/gaoruihao/gsim'
 make[1]: Leaving directory '/home/gaoruihao/gsim'
-89.88user 0.23system 1:30.13elapsed 99%CPU (0avgtext+0avgdata 86544maxresident)k
-0inputs+0outputs (0major+41184minor)pagefaults 0swaps
+58.34user 0.36system 0:58.83elapsed 99%CPU (0avgtext+0avgdata 86332maxresident)k
+0inputs+0outputs (0major+46535minor)pagefaults 0swaps
 ```
