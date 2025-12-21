@@ -33,6 +33,12 @@
 - [todo] Build for the host: compile the simulator with `-O3 -march=native` (and LTO if acceptable); ensure GMP is built with platform-tuned assembly (e.g., `--enable-fat` or a native-tuned build) to reduce limb overhead.
 - [todo] Measure before/after: profile with `perf` or sampling to confirm hotspots (allocation/normalization vs arithmetic), then iterate on the highest-impact sites.
 
+### Latest profile (user-mode gprof, -pg, ysyx3)
+- Run: `BUILD_DIR=build-prof GMON_OUT_PREFIX=build-prof/gmon.out CXXFLAGS='-pg -O3' LDFLAGS='-pg' make run dutName=ysyx3`
+- Top self time: `Snewtop::subStep0` ~77% (main simulator loop).
+- GMP hot spots (self time): `GmpInt<128,false>::operator&` ~2.6%, `GmpInt<128,false>::GmpInt<int>` ~2.4%, unary minus ~2.1%, bitwise OR ~1.5%, `operator unsigned long` ~1.4%; canonicalization no longer dominates.
+- Remaining work: focus on reducing temporary constructions and add fixed-limb bitwise/shift fast paths for 128/192-bit widths to trim the bitwise/constructor costs.
+
 ## Speedtest
 ```
 cycles 9130000 (74230 ms, 122996 per sec) simulation process 83.00% 

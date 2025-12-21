@@ -114,9 +114,9 @@ class GmpInt {
   GmpInt& operator>>=(T shift) { *this = shift_right(static_cast<unsigned>(shift)); return *this; }
 
   // Comparisons
-  bool operator==(const GmpInt& rhs) const { return canonical_mpz() == rhs.canonical_mpz(); }
+  bool operator==(const GmpInt& rhs) const { return mpz_cmp(g_, rhs.g_) == 0; }
   bool operator!=(const GmpInt& rhs) const { return !(*this == rhs); }
-  bool operator<(const GmpInt& rhs) const { return canonical_mpz() < rhs.canonical_mpz(); }
+  bool operator<(const GmpInt& rhs) const { return mpz_cmp(g_, rhs.g_) < 0; }
   bool operator>(const GmpInt& rhs) const { return rhs < *this; }
   bool operator<=(const GmpInt& rhs) const { return !(*this > rhs); }
   bool operator>=(const GmpInt& rhs) const { return !(*this < rhs); }
@@ -145,39 +145,41 @@ class GmpInt {
  protected:
   mpz_t g_;
 
-  static const mpz_class& mask() {
-    static mpz_class m = []() {
-      mpz_class tmp(1);
-      mpz_mul_2exp(tmp.get_mpz_t(), tmp.get_mpz_t(), WIDTH);
-      tmp -= 1;
-      return tmp;
-    }();
+  static mpz_srcptr mask_mpz() {
+    static mpz_t m;
+    static bool init = false;
+    if (!init) {
+      mpz_init(m);
+      mpz_ui_pow_ui(m, 2, WIDTH);
+      mpz_sub_ui(m, m, 1);
+      init = true;
+    }
     return m;
   }
 
-  static const mpz_class& two_pow_width() {
-    static mpz_class v = []() {
-      mpz_class tmp(1);
-      mpz_mul_2exp(tmp.get_mpz_t(), tmp.get_mpz_t(), WIDTH);
-      return tmp;
-    }();
+  static mpz_srcptr two_pow_mpz() {
+    static mpz_t v;
+    static bool init = false;
+    if (!init) {
+      mpz_init(v);
+      mpz_ui_pow_ui(v, 2, WIDTH);
+      init = true;
+    }
     return v;
   }
 
   mpz_class canonical_mpz() const {
-    mpz_class out;
-    mpz_and(out.get_mpz_t(), g_, mask().get_mpz_t());
-    if constexpr (SIGNED) {
-      if (mpz_tstbit(out.get_mpz_t(), WIDTH - 1)) {
-        mpz_sub(out.get_mpz_t(), out.get_mpz_t(), two_pow_width().get_mpz_t());
-      }
-    }
-    return out;
+    // g_ is kept normalized; return a lightweight copy for consumers needing mpz_class.
+    return mpz_class(g_);
   }
 
   void normalize() {
-    mpz_class c = canonical_mpz();
-    mpz_set(g_, c.get_mpz_t());
+    mpz_and(g_, g_, mask_mpz());
+    if constexpr (SIGNED) {
+      if (mpz_tstbit(g_, WIDTH - 1)) {
+        mpz_sub(g_, g_, two_pow_mpz());
+      }
+    }
   }
 
   template<typename Op>
