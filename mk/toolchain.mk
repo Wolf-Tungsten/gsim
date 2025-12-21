@@ -66,25 +66,26 @@ $(info [gsim] Using CXX=$(CXX) (origin: $(ORIGIN_CXX)))
 
 # Read compiler version string (best-effort)
 CXX_VERSION_STR := $(shell $(CXX) --version 2>/dev/null)
-ifneq ($(strip $(CXX_VERSION_STR)),)
-  $(info [gsim] $(CXX) version: $(CXX_VERSION_STR))
+CXX_VERSION_FIRSTLINE := $(shell $(CXX) --version 2>/dev/null | head -n 1)
+ifneq ($(strip $(CXX_VERSION_FIRSTLINE)),)
+  $(info [gsim] $(CXX) version: $(CXX_VERSION_FIRSTLINE))
 else
   $(warning Unable to query compiler version from $(CXX); build will continue.)
 endif
 
 # Detect compiler family
-CXX_IS_CLANG := $(if $(findstring clang,$(CXX_VERSION_STR)),1,0)
-CXX_IS_GCC := $(if $(findstring GCC,$(CXX_VERSION_STR)),1,$(if $(findstring g++,$(CXX_VERSION_STR)),1,0))
+CXX_IS_CLANG := $(if $(findstring clang,$(CXX_VERSION_FIRSTLINE)),1,0)
+CXX_IS_GCC := $(if $(findstring GCC,$(CXX_VERSION_FIRSTLINE)),1,$(if $(findstring g++,$(CXX_VERSION_FIRSTLINE)),1,0))
 
 ifeq ($(CXX_IS_CLANG),1)
-  CLANG_MAJOR := $(shell echo '$(CXX_VERSION_STR)' | sed -n 's/.*clang version \([0-9][0-9]*\).*/\1/p')
+  CLANG_MAJOR := $(shell echo '$(CXX_VERSION_FIRSTLINE)' | sed -n 's/.*clang version \([0-9][0-9]*\).*/\1/p')
   ifneq ($(CLANG_MAJOR),)
     $(info [gsim] Detected clang major from CXX: $(CLANG_MAJOR))
   endif
 endif
 
 ifeq ($(CXX_IS_GCC),1)
-  GCC_MAJOR := $(shell echo '$(CXX_VERSION_STR)' | sed -n 's/.* \([0-9][0-9]*\)\.[0-9]*\.[0-9]*/\1/p')
+  GCC_MAJOR := $(shell echo '$(CXX_VERSION_FIRSTLINE)' | sed -n 's/.* \([0-9][0-9]*\)\.[0-9]*\.[0-9]*/\1/p')
   ifneq ($(GCC_MAJOR),)
     $(info [gsim] Detected GCC major from CXX: $(GCC_MAJOR))
   endif

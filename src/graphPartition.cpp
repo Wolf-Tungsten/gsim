@@ -92,7 +92,8 @@ void graph::graphInitPartition() {
     // printf("T[%ld] = %d size %ld\n", i, T[i], sortedSuper[i]->member.size());
     size_t nextBound = i + 1;
     size_t accuCost = sortedSuper[i]->member.size();
-    for (; nextBound < sortedSuper.size() && accuCost + sortedSuper[nextBound]->member.size() <= globalConfig.SuperNodeMaxSize; nextBound ++) {
+    const size_t superNodeMax = static_cast<size_t>(globalConfig.SuperNodeMaxSize);
+    for (; nextBound < sortedSuper.size() && accuCost + sortedSuper[nextBound]->member.size() <= superNodeMax; nextBound ++) {
       accuCost += sortedSuper[nextBound]->member.size();
     }
     /* update T[i + 1] to T[nextBound] that jmp at i */

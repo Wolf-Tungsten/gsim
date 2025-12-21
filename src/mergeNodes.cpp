@@ -104,7 +104,7 @@ void graph::mergeWhenNodes() {
   auto addCond = [&cond, &condWait, &allCond, &times](SuperNode* super) {
     int num = 0;
     for (SuperNode* s : allCond[super]) {
-      if (times[s] + 1 == s->depPrev.size()) num ++;
+      if (times[s] + 1 == static_cast<int>(s->depPrev.size())) num ++;
     }
     if (num >= 2) cond.push(super);
     else condWait.insert(super);
@@ -128,12 +128,12 @@ void graph::mergeWhenNodes() {
     s.pop();
     for (SuperNode* next : top->depNext) {
       times[next] ++;
-      if (times[next] + 1 == next->depPrev.size()) {
+      if (times[next] + 1 == static_cast<int>(next->depPrev.size())) {
         if (node2Cond.find(next) != node2Cond.end()) {
           cond2Queue(node2Cond[next]);
         }
       }
-      if (times[next] == next->depPrev.size()) {
+      if (times[next] == static_cast<int>(next->depPrev.size())) {
         if (allCond.find(next) != allCond.end()) addCond(next);
         else s.push(next);
       }
@@ -147,12 +147,12 @@ void graph::mergeWhenNodes() {
       std::vector<SuperNode*> mergeSuper;
       for (SuperNode* next : mergeCond->depNext) {
         times[next] ++;
-        if (times[next] == next->depPrev.size()) {
+        if (times[next] == static_cast<int>(next->depPrev.size())) {
           if (allCond[mergeCond].find(next) != allCond[mergeCond].end()) mergeSuper.push_back(next);
           s.push(next);
         }
       }
-      if (mergeSuper.size() > globalConfig.MergeWhenSize) whenMap[mergeCond] = mergeSuper;
+      if (mergeSuper.size() > static_cast<size_t>(globalConfig.MergeWhenSize)) whenMap[mergeCond] = mergeSuper;
     }
   }
   for (auto iter : whenMap) {

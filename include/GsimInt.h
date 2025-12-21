@@ -11,6 +11,16 @@
 
 namespace gsim {
 
+template<typename U, typename Enable = void>
+struct UnsignedHelper {
+  using type = std::make_unsigned_t<U>;
+};
+
+template<typename U>
+struct UnsignedHelper<U, std::enable_if_t<std::is_same<U, bool>::value>> {
+  using type = unsigned int;
+};
+
 template<int WIDTH, bool SIGNED>
 class GsimInt {
  public:
@@ -125,11 +135,6 @@ class GsimInt {
  private:
   template<int, bool> friend class GsimInt;
   std::array<limb_t, kLimbCount> data_{};
-
-  template<typename U>
-  struct UnsignedHelper { using type = std::make_unsigned_t<U>; };
-  template<>
-  struct UnsignedHelper<bool> { using type = unsigned int; };
 
   void zero() { data_.fill(0); }
 

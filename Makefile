@@ -221,9 +221,18 @@ ifeq ($(CXX_IS_CLANG),1)
 EMU_WARN_SUPPRESS += -Wno-parentheses-equality
 endif
 
+ifeq ($(ENABLE_LOG),1)
+EMU_LOG_FLAG = -DENABLE_LOG
+endif
+
+EMU_BRACKET_DEPTH :=
+ifeq ($(CXX_IS_CLANG),1)
+EMU_BRACKET_DEPTH = -fbracket-depth=2048
+endif
+
 EMU_CFLAGS := -O1 -MMD --std=c++17 $(addprefix -I, $(abspath $(GEN_CPP_DIR))) $(addprefix -I, $(GSIM_INC_DIR)) $(EMU_CFLAGS) # allow to overwrite optimization level
-EMU_CFLAGS += $(MODE_FLAGS) $(CFLAGS_DUT) $(EMU_WARN_SUPPRESS)
-EMU_CFLAGS += -fbracket-depth=2048
+EMU_CFLAGS += $(MODE_FLAGS) $(CFLAGS_DUT) $(EMU_WARN_SUPPRESS) $(EMU_LOG_FLAG)
+EMU_CFLAGS += $(EMU_BRACKET_DEPTH)
 #EMU_CFLAGS += -fsanitize=address -fsanitize-address-use-after-scope
 #EMU_CFLAGS += -fsanitize=undefined -fsanitize=pointer-compare -fsanitize=pointer-subtract
 #EMU_CFLAGS += -pg -ggdb
@@ -378,7 +387,7 @@ diff-internal:
 	$(MAKE) MODE=2 compile
 	$(MAKE) MODE=2 difftest
 
-run:
+run: clean
 	mkdir -p $(dir $(LOG_FILE))
 	set -o pipefail && $(TIME) $(MAKE) run-internal 2>&1 | tee $(LOG_FILE)
 

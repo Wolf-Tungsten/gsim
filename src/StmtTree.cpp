@@ -33,7 +33,7 @@ bool checkCondEq(StmtNode* stmtNode, ENode* enode) {
 }
 
 void addDepthPath(std::vector<int>& path, int depth, int nodeIdx) {
-  if (path.size() <= depth) path.push_back(nodeIdx);
+  if (path.size() <= static_cast<size_t>(depth)) path.push_back(nodeIdx);
   else if(nodeIdx > path[depth]){
     path[depth] = nodeIdx;
     path.resize(depth + 1);
@@ -118,7 +118,7 @@ void StmtTree::mergeExpTree(ExpTree* tree, std::vector<int>& prevPath, std::vect
     std::tie(stmtNode, enode, depth, anyLimit) = s.top();
     s.pop();
 
-    if (anyLimit && depth >= path.size()) anyLimit = false;
+    if (anyLimit && static_cast<size_t>(depth) >= path.size()) anyLimit = false;
     /* For any stmtNode and enode pair. Check:
      * A. They are both conditional node, and share the same condition : */
     if (checkCondEq(stmtNode, enode)) { // directly merges into existing conditional nodes with matching conditions
@@ -137,11 +137,11 @@ void StmtTree::mergeExpTree(ExpTree* tree, std::vector<int>& prevPath, std::vect
           for (size_t i = 0; i < stmtNode->child.size(); i ++) {
             if (stmtNode->getChild(i)->type == OP_STMT_WHEN &&  /* this check is redundant */
                 checkCondEq(stmtNode->getChild(i), enode) &&
-                (!anyLimit || path[depth] <= i)) { // if anyLimit is set, don't insert enode beyond the dependency at current depth
+                (!anyLimit || path[depth] <= static_cast<int>(i))) { // if anyLimit is set, don't insert enode beyond the dependency at current depth
               match = i;
               // If, at any depth, the current dependency goes greater than path[depth] (e.g. path=[0,2,2,2,2], current=[0,2,3])
               // Then we don't need to consider the path at following depth anymore
-              bool nextLimit = (!anyLimit || path[depth] < i) ? false : anyLimit;
+              bool nextLimit = (!anyLimit || path[depth] < static_cast<int>(i)) ? false : anyLimit;
               s.push(std::make_tuple(stmtNode->getChild(i), enode, depth + 1, nextLimit));
               break;
             }
@@ -166,40 +166,40 @@ void StmtTree::mergeExpTree(ExpTree* tree, std::vector<int>& prevPath, std::vect
         Assert(stmtNode->type == OP_STMT_SEQ, "stmtNode %d is not seq", stmtNode->type);
         /* For non-array, first try to deduplicate it. Avoid xxx = yyy; ... ... xxx = zzz; */
         if (!node->isArray() && enode->opType != OP_INVALID) {
-          for (int i = 0; i < stmtNode->getChildNum(); i ++) {
+          for (size_t i = 0; i < stmtNode->getChildNum(); i ++) {
             StmtNode* child = stmtNode->getChild(i);
             if (child->type == OP_STMT_NODE) {
               Assert(!child->isENode, "invalid stmtNode %d", child->type);
               Node* childNode = child->tree->getlval()->getNode();
               Assert(childNode, "invalid node");
               if (childNode == node) {
-                stmtNode->eraseChild(i);
+                stmtNode->eraseChild(static_cast<int>(i));
               }
             }
           }
         }
         /* Insert the node to the earliest possible position to minimize dependency path.
            Allowing more extensive conditional operations merging */
-        int start = 0; // Caculated earliest possible position
+        size_t start = 0; // Calculated earliest possible position
         bool found = false;
         if (anyLimit) {
           /* Even path might not describing the current branch, it's always safe as long as not get out of bound */
-          start = std::min((int)stmtNode->child.size(), path[depth]);
+          start = std::min(stmtNode->child.size(), static_cast<size_t>(path[depth]));
         }
         /* Find the earliest non-conditional operation (NODE or SEQ) to insert */
-        for (int i = start; i < stmtNode->getChildNum(); i++) {
+        for (size_t i = start; i < stmtNode->getChildNum(); i++) {
           /* For STMT_Node, elevate it to a STMT_SEQ, then append  */
           if (stmtNode->getChild(i)->type == OP_STMT_NODE) {
             const auto tmp = stmtNode->getChild(i);
             stmtNode->setChild(i, new StmtNode(OP_STMT_SEQ));
             stmtNode->getChild(i)->addChild(tmp);
             stmtNode->getChild(i)->addChild(new StmtNode(new ExpTree(enode->dup(), tree->getlval()->dup()), belong));
-            addDepthPath(nodePath, depth, i);
+            addDepthPath(nodePath, depth, static_cast<int>(i));
             found = true;break;
           /* For STMT_SEQ, just append */
           }else if(stmtNode->getChild(i)->type == OP_STMT_SEQ){
             stmtNode->getChild(i)->addChild(new StmtNode(new ExpTree(enode->dup(), tree->getlval()->dup()), belong));
-            addDepthPath(nodePath, depth, i);
+            addDepthPath(nodePath, depth, static_cast<int>(i));
             found = true;break;
           }
         }
@@ -258,10 +258,11 @@ void prevOrderPath(Node* node, std::vector<int>& prevPath, std::map<Node*, std::
 }
 
 void getCommonPath(std::vector<int>& path1, ExpTree* referTree, std::vector<int>& path2, ExpTree* newTree) {
-  int commonNum = 1;
+  size_t commonNum = 1;
   ENode* referRoot = referTree->getRoot();
   ENode* newRoot = newTree->getRoot();
-  for (; commonNum < MIN(path1.size(), path2.size()) && referRoot->opType == OP_WHEN && newRoot->opType == OP_WHEN; commonNum ++) {
+  const size_t minSize = std::min(path1.size(), path2.size());
+  for (; commonNum < minSize && referRoot->opType == OP_WHEN && newRoot->opType == OP_WHEN; commonNum ++) {
     if (path1[commonNum] != path2[commonNum]) break;
     if (!checkCondENodeSame(referRoot->getChild(0), newRoot->getChild(0))) break;
     referRoot = referRoot->getChild(path1[commonNum]);
@@ -301,9 +302,10 @@ void getRelyPath(std::vector<int>&path, Node* node, ExpTree* tree) { // get the 
       }
       /* expand top */
       enodeStatus[top] = EXPANDED;
-      for (int i = 0; i < top->getChildNum(); i ++) {
+      const size_t childNum = static_cast<size_t>(top->getChildNum());
+      for (size_t i = 0; i < childNum; i ++) {
         Assert(enodeStatus.find(top->getChild(i)) == enodeStatus.end(), "already visited %p in %s\n", top->getChild(i), node->name.c_str());
-        if (top->getChild(i)) s.push(std::make_pair(top->getChild(i), i));
+        if (top->getChild(i)) s.push(std::make_pair(top->getChild(i), static_cast<int>(i)));
       }
     } else if (enodeStatus[top] == EXPANDED) {
       enodeStatus[top] = VISITED;

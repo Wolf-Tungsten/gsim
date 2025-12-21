@@ -112,23 +112,23 @@ ActiveType activeSet2bitMap(std::set<int>& activeId, std::map<uint64_t, ActiveTy
 
 std::string updateActiveStr(int idx, uint64_t mask) {
   if (mask <= MAX_U8) return format("activeFlags[%d] |= 0x%lx;", idx, mask);
-  if (mask <= MAX_U16) return format("*(uint16_t*)&activeFlags[%d] |= 0x%lx;", idx, mask);
-  if (mask <= MAX_U32) return format("*(uint32_t*)&activeFlags[%d] |= 0x%lx;", idx, mask);
-  return format("*(uint64_t*)&activeFlags[%d] |= 0x%lx;", idx, mask);
+  if (mask <= MAX_U16) return format("gsim_active_or<uint16_t>(activeFlags, %d, (uint16_t)0x%lx);", idx, mask);
+  if (mask <= MAX_U32) return format("gsim_active_or<uint32_t>(activeFlags, %d, (uint32_t)0x%lx);", idx, mask);
+  return format("gsim_active_or<uint64_t>(activeFlags, %d, (uint64_t)0x%lx);", idx, mask);
 }
 
 std::string updateActiveStr(int idx, uint64_t mask, std::string& cond, int uniqueId) {
-  auto activeFlags = std::string("activeFlags[") + std::to_string(idx) + std::string("]");
+  const std::string activeFlags = "activeFlags";
 
   if (mask <= MAX_U8) {
-    if (uniqueId >= 0) return format("%s |= %s%s;", activeFlags.c_str(), cond.c_str(), shiftBits(uniqueId, ShiftDir::Left).c_str());
-    else return format("%s |= -(uint8_t)%s & 0x%lx;", activeFlags.c_str(), cond.c_str(), mask, activeFlags.c_str());
+    if (uniqueId >= 0) return format("%s[%d] |= %s%s;", activeFlags.c_str(), idx, cond.c_str(), shiftBits(uniqueId, ShiftDir::Left).c_str());
+    else return format("%s[%d] |= -(uint8_t)%s & 0x%lx;", activeFlags.c_str(), idx, cond.c_str(), mask, activeFlags.c_str());
   }
   if (mask <= MAX_U16)
-    return format("*(uint16_t*)&%s |= -(uint16_t)%s & 0x%lx;", activeFlags.c_str(), cond.c_str(), mask, activeFlags.c_str());
+    return format("gsim_active_or<uint16_t>(%s, %d, (uint16_t)(-(uint16_t)%s & 0x%lx));", activeFlags.c_str(), idx, cond.c_str(), mask, activeFlags.c_str());
   if (mask <= MAX_U32)
-    return format("*(uint32_t*)&%s |= -(uint32_t)%s & 0x%lx;", activeFlags.c_str(), cond.c_str(), mask, activeFlags.c_str());
-  return format("*(uint64_t*)&%s |= -(uint64_t)%s & 0x%lx;", activeFlags.c_str(), cond.c_str(), mask, activeFlags.c_str());
+    return format("gsim_active_or<uint32_t>(%s, %d, (uint32_t)(-(uint32_t)%s & 0x%lx));", activeFlags.c_str(), idx, cond.c_str(), mask, activeFlags.c_str());
+  return format("gsim_active_or<uint64_t>(%s, %d, (uint64_t)(-(uint64_t)%s & 0x%lx));", activeFlags.c_str(), idx, cond.c_str(), mask, activeFlags.c_str());
 }
 
 static void inline includeLib(FILE* fp, std::string lib, bool isStd) {
@@ -183,6 +183,14 @@ FILE* graph::genHeaderStart() {
   fprintf(header, "#define likely(x) __builtin_expect(!!(x), 1)\n");
   fprintf(header, "#define unlikely(x) __builtin_expect(!!(x), 0)\n");
   fprintf(header, "void gprintf(const char *fmt, ...);\n\n");
+
+  fprintf(header, "template <typename T>\n");
+  fprintf(header, "static inline void gsim_active_or(uint8_t *flags, int idx, T mask) {\n");
+  fprintf(header, "  T tmp;\n");
+  fprintf(header, "  memcpy(&tmp, flags + idx, sizeof(T));\n");
+  fprintf(header, "  tmp |= mask;\n");
+  fprintf(header, "  memcpy(flags + idx, &tmp, sizeof(T));\n");
+  fprintf(header, "}\n\n");
 
   for (int num = 2; num <= maxConcatNum; num ++) {
     std::string param;
@@ -704,7 +712,8 @@ bool SuperNode::instsEmpty() {
 
 bool graph::__emitSrc(int indent, bool canNewFile, bool alreadyEndFunc, const char *nextFuncDef, const char *fmt, ...) {
   bool newFile = false;
-  if (srcFp == NULL || (srcFileBytes > (globalConfig.cppMaxSizeKB * 1024) && canNewFile)) {
+  const uint64_t maxFileBytes = static_cast<uint64_t>(globalConfig.cppMaxSizeKB) * 1024;
+  if (srcFp == NULL || (static_cast<uint64_t>(srcFileBytes) > maxFileBytes && canNewFile)) {
     if (srcFp != NULL) {
       if (!alreadyEndFunc) fprintf(srcFp, "}"); // the end of the current function
       fclose(srcFp);
@@ -734,29 +743,27 @@ void graph::emitPrintf() {
   "  FILE *fp = stderr;\n"
   "  va_list args;\n"
   "  va_start(args, fmt);\n"
-  "  int fmt_idx = 0;\n"
-  "  while (true) {\n"
+  "  for (int fmt_idx = 0; ; ) {\n"
   "    char c = fmt[fmt_idx ++];\n"
-  "    switch (c) {\n"
-  "      case '%%': break;\n"
-  "      case 0: return;\n"
-  "      default: fputc(c, fp); continue;\n"
-  "    }\n"
+  "    if (c == 0) break;\n"
+  "    if (c != '%') { fputc(c, fp); continue; }\n"
   "\n"
   "    uint64_t lval = 0;\n"
-  "    int bits = va_arg(args, uint32_t);\n"
+  "    int bits = va_arg(args, int);\n"
   "    if      (bits <= 32) { lval = va_arg(args, uint32_t); }\n"
   "    else if (bits <= 64) { lval = va_arg(args, uint64_t); }\n"
   "    else                 { assert(0); }\n"
   "\n"
   "    c = fmt[fmt_idx ++];\n"
   "    switch (c) {\n"
-  "      case 'd': fprintf(fp, \"%%ld\", lval); break;\n"
-  "      case 'c': fputc(lval & 0xff, fp); break;\n"
-  "      case 'x': fprintf(fp, \"%%lx\", lval); break;\n"
+  "      case 'd': fprintf(fp, \"%%ld\", (long)lval); break;\n"
+  "      case 'c': fputc((int)(lval & 0xff), fp); break;\n"
+  "      case 'x': fprintf(fp, \"%%lx\", (unsigned long)lval); break;\n"
   "      default: assert(0);\n"
   "    }\n"
   "  }\n"
+  "  va_end(args);\n"
+  "  fflush(fp);\n"
   "}\n"
   );
 }
