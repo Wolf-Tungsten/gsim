@@ -46,8 +46,13 @@ class GsimInt {
   template<typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
   GsimInt& operator=(T v) { assign_integral(v); return *this; }
 
-  template<int OTHER_W, bool OTHER_S, typename = std::enable_if_t<(OTHER_W != WIDTH) || (OTHER_S != SIGNED)>>
+  template<int OTHER_W, bool OTHER_S,
+           typename = std::enable_if_t<((OTHER_W != WIDTH) || (OTHER_S != SIGNED)) && (OTHER_W <= WIDTH)>>
   GsimInt(const GsimInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); }
+  // Narrowing conversions require an explicit cast to avoid ambiguous implicit paths.
+  template<int OTHER_W, bool OTHER_S, typename = void,
+           typename = std::enable_if_t<(OTHER_W > WIDTH)>>
+  explicit GsimInt(const GsimInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); }
   template<int OTHER_W, bool OTHER_S, typename = std::enable_if_t<(OTHER_W != WIDTH) || (OTHER_S != SIGNED)>>
   GsimInt& operator=(const GsimInt<OTHER_W, OTHER_S>& other) { assign_from_other(other); return *this; }
 
