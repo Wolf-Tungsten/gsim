@@ -215,6 +215,8 @@ EMU_MAIN_SRCS = emu/emu.cpp
 endif
 EMU_GEN_SRCS = $(shell find $(GEN_CPP_DIR) -name "*.cpp" 2> /dev/null)
 EMU_SRCS += $(EMU_MAIN_SRCS) $(EMU_GEN_SRCS)
+# Explicit GsimInt instantiations to keep generated model TUs light.
+EMU_SRCS += src/GsimInt.cpp
 
 EMU_WARN_SUPPRESS :=
 ifeq ($(CXX_IS_CLANG),1)

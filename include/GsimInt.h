@@ -9,6 +9,24 @@
 #include <sstream>
 #include <type_traits>
 
+#if defined(__clang__) || defined(__GNUC__)
+#define GSIMINT_NOINLINE __attribute__((noinline))
+#else
+#define GSIMINT_NOINLINE
+#endif
+
+#ifndef GSIMINT_EXTERN_TEMPLATES
+#define GSIMINT_EXTERN_TEMPLATES 1
+#endif
+
+#ifndef GSIMINT_EXTERN_WIDTH_LIST
+#define GSIMINT_EXTERN_WIDTH_LIST(M) \
+  M(64) M(128) M(192) M(256) M(320) M(384) M(448) M(512) \
+  M(576) M(640) M(704) M(768) M(832) M(896) M(960) M(1024) \
+  M(1088) M(1152) M(1216) M(1280) M(1344) M(1408) M(1472) M(1536) \
+  M(1600) M(1664) M(1728) M(1792) M(1856) M(1920) M(1984) M(2048)
+#endif
+
 namespace gsim {
 
 template<typename U, typename Enable = void>
@@ -256,14 +274,14 @@ class GsimInt {
   }
 
   template<typename Func>
-  GsimInt bitwise(const GsimInt& rhs, Func func) const {
+  GSIMINT_NOINLINE GsimInt bitwise(const GsimInt& rhs, Func func) const {
     GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) ret.data_[i] = func(data_[i], rhs.data_[i]);
     ret.apply_mask();
     return ret;
   }
 
-  GsimInt add(const GsimInt& rhs) const {
+  GSIMINT_NOINLINE GsimInt add(const GsimInt& rhs) const {
     GsimInt ret;
     limb_t carry = 0;
     for (size_t i = 0; i < kLimbCount; ++i) {
@@ -275,7 +293,7 @@ class GsimInt {
     return ret;
   }
 
-  GsimInt sub(const GsimInt& rhs) const {
+  GSIMINT_NOINLINE GsimInt sub(const GsimInt& rhs) const {
     GsimInt ret;
     limb_t borrow = 0;
     for (size_t i = 0; i < kLimbCount; ++i) {
@@ -287,7 +305,7 @@ class GsimInt {
     return ret;
   }
 
-  GsimInt mul(const GsimInt& rhs) const {
+  GSIMINT_NOINLINE GsimInt mul(const GsimInt& rhs) const {
     GsimInt ret;
     for (size_t i = 0; i < kLimbCount; ++i) {
       limb_t carry = 0;
@@ -355,8 +373,8 @@ class GsimInt {
     }
   }
 
-  static void divmod_unsigned(const GsimInt& lhs, const GsimInt& rhs,
-                              GsimInt& quot, GsimInt& rem) {
+  GSIMINT_NOINLINE static void divmod_unsigned(const GsimInt& lhs, const GsimInt& rhs,
+                                               GsimInt& quot, GsimInt& rem) {
     quot.zero();
     rem.zero();
     if (is_zero(rhs.data_)) return;
@@ -397,7 +415,7 @@ class GsimInt {
     return ret;
   }
 
-  GsimInt div(const GsimInt& rhs, GsimInt* rem_out) const {
+  GSIMINT_NOINLINE GsimInt div(const GsimInt& rhs, GsimInt* rem_out) const {
     GsimInt quot, rem;
     if constexpr (!SIGNED) {
       divmod_unsigned(*this, rhs, quot, rem);
@@ -431,7 +449,7 @@ class GsimInt {
     return quot;
   }
 
-  GsimInt shl(unsigned shift) const {
+  GSIMINT_NOINLINE GsimInt shl(unsigned shift) const {
     if (shift >= static_cast<unsigned>(WIDTH)) return GsimInt();
     GsimInt ret;
     const unsigned limb_shift = shift / kLimbBits;
@@ -452,7 +470,7 @@ class GsimInt {
     return ret;
   }
 
-  GsimInt shr(unsigned shift) const {
+  GSIMINT_NOINLINE GsimInt shr(unsigned shift) const {
     if (shift >= static_cast<unsigned>(WIDTH)) {
       if constexpr (SIGNED) {
         return is_negative() ? all_ones() : GsimInt();
@@ -520,6 +538,14 @@ template<int WIDTH> using GsimIntU = GsimInt<WIDTH, false>;
 template<int WIDTH> using GsimIntS = GsimInt<WIDTH, true>;
 template<int WIDTH> using GsimWideU = GsimIntU<WIDTH>;
 template<int WIDTH> using GsimWideS = GsimIntS<WIDTH>;
+
+#if GSIMINT_EXTERN_TEMPLATES
+#define GSIMINT_EXTERN_ONE(WIDTH) \
+  extern template class GsimInt<WIDTH, false>; \
+  extern template class GsimInt<WIDTH, true>;
+GSIMINT_EXTERN_WIDTH_LIST(GSIMINT_EXTERN_ONE)
+#undef GSIMINT_EXTERN_ONE
+#endif
 
 } // namespace gsim
 
